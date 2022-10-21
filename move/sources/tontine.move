@@ -18,14 +18,19 @@ module tontine::root {
     /// holds all the interesting stuff. We do it this way so it's easy to
     /// grab a mutable reference to everything at once without running into
     /// issues from holding multiple references. This is acceptable for now.
-    struct Root has key {
+    struct Tontine has key {
+        allowed_participants: vector<address>,
         inner: Inner,
+    }
+
+    struct FallbackPolicy has key {
+
     }
 
     /// All the interesting stuff.
     struct Inner has store {
         /// Table of links, where the key is the escaped URL.
-        links: simple_map::SimpleMap<string::String, LinkData>,
+        links: simple_map::SimpleMap<address, LinkData>,
 
         /// As above, but the key is encrypted using the private key and the
         /// value is an encrypted version of LinkData.
