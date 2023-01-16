@@ -1,51 +1,70 @@
 // Copyright (c) Daniel Porteous
 // SPDX-License-Identifier: Apache-2.0
 
-module tontine::root {
+//! See the README for more information about how this tontine module works.
+
+module addr::tontine {
     use std::string;
     use std::error;
     use std::signer;
     use std::vector;
-    use aptos_std::simple_map;
+    use aptos_std::simple_map::SimpleMap;
 
     const E_NOT_INITIALIZED: u64 = 1;
 
-    #[test_only]
     /// Used for assertions in tests.
+    #[test_only]
     const E_TEST_FAILURE: u64 = 100;
 
-    /// Top level module. This just contains the Inner struct, which actually
-    /// holds all the interesting stuff. We do it this way so it's easy to
-    /// grab a mutable reference to everything at once without running into
-    /// issues from holding multiple references. This is acceptable for now.
+    /// todo
     struct Tontine has key {
-        allowed_participants: vector<address>,
-        inner: Inner,
+        /// The parameters used to configure initial creation of the tontine.
+        config: TontineConfig,
+
+        /// The time (unixtime in secs) at which the tontine was created.
+        creation_time_secs: u64,
+
+        /// The coins from each member.
+        coins: SimpleMap<address, AptosCoin>,
+
+        /// The time (unixtime in secs) at which the tontine was locked. This will be
+        /// zero until the tontine is locked.
+        locked_time_secs: u64,
+
+        /// The time (unixtime in secs) at which the assets in the tontine were claimed.
+        /// This will be zero until that happens.
+        locked_time_secs: u64,
+
+        /// The last time (unixtime in secs) each member of the tontine checked in.
+        last_check_in_times_secs: SimpleMap<address, u64>,
     }
 
-    struct FallbackPolicy has key {
+    struct TontineConfig {
+        /// Who (where identity is defined by account address) is party to the tontine.
+        participants: vector<address>,
+
+        /// How much each participant must contribute to the tontine.
+        per_participant_amount_octa: u64,
+
+        /// How often, in seconds, each participant must check-in to prove that they're
+        /// still in control of their account.
+        check_in_frequency_secs: u64,
+
+        /// How long, in seconds, the window is where the last-standing member is able
+        /// to claim the funds.
+        claim_window_secs: u64,
+
+        /// What happens if the last-standing member of the tontine fails to claim the
+        /// funds within the claim window.
+        fallback_policy: TontineFallbackPolicy
+    }
+
+    struct TontineFallbackPolicy has key {
 
     }
 
-    /// All the interesting stuff.
-    struct Inner has store {
-        /// Table of links, where the key is the escaped URL.
-        links: simple_map::SimpleMap<address, LinkData>,
-
-        /// As above, but the key is encrypted using the private key and the
-        /// value is an encrypted version of LinkData.
-        secret_links: simple_map::SimpleMap<vector<u8>, vector<u8>>,
-
-        /// Any link the user has chosen to archive.
-        archived_links: simple_map::SimpleMap<string::String, LinkData>,
-
-        /// Any secret link the user has chosen to archive.
-        archived_secret_links: simple_map::SimpleMap<vector<u8>, vector<u8>>,
-    }
-
-    struct LinkData has drop, store {
-        /// Any arbitrary tags the user wants to add.
-        tags: vector<string::String>,
+    struct TontineStore has key {
+        tontines: SimpleMap<vector<u8>, Tontine>,
     }
 
     /// Initialize the list to the caller's account.

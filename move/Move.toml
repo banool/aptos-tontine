@@ -1,8 +1,8 @@
 [package]
 name = "tontine"
-version = "1.0.0"
+version = "0.0.1"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "devnet"
+rev = "main"
 subdir = "aptos-move/framework/aptos-framework"
