@@ -11,7 +11,6 @@
 
 
 ## Summary
-
 The tontine described here is a variant of the standard tontine that works as described above. In this scheme, people invest funds into a shared fund. It remains locked in the fund until only one member of the tontine remains.
 
 Organizing a tontine on-chain has a variety of interesting properties, be them advantages or disadvantages:
@@ -21,10 +20,10 @@ Organizing a tontine on-chain has a variety of interesting properties, be them a
 
 Make sure you understand these properties before taking part in a tontine organized through this Move module.
 
-## Tontine lifecycle
+## Standard tontine lifecycle
 A tontine using this Move module proceeds through the following lifecycle.
 
-### Create a "staging" tontine
+### Creator establishes a "staging" tontine
 Alice creates a "staging" tontine. In this she specifies:
 
 - People (addresses) to be included in the tontine.
@@ -34,29 +33,35 @@ Alice creates a "staging" tontine. In this she specifies:
     - All funds get returned to the original accounts.
     - Funds go to a preconfigured arbitrary account.
 
-### Commit funds to the tontine
+### Everyone commits funds to the tontine
 Once the staging tontine has been created, people commit funds to it. So long as the tontine is in the staging period, people may withdraw their funds again if they want.
 
-### Lock the tontine
+### A member locks the tontine
 Once everyone has committed their funds to the tontine (and only then), any party to the tontine can lock it (not just the original creator).
 
-### Check in with the tontine
+### Members check in with the tontine
 To prove that you're still in control of your account / alive, users must check in periodically with the tontine. Given this costs gas, ideally this is infrequent, e.g. every 3 months.
 
-### Claim the funds
+### The last member standing claims the funds
 Over time, people will cease checking in and become ineligible to claim the tontine. Once only one eligible individual remains, they may redeem the total value of the tontine to their account.
 
-## Non-standard lifecycle
+## Irregular lifecycle events
 Above describes the standard flow, there are other lifecycle events that may occur.
 
-### Cancel a staging tontine
-If people decide part way through the establishment of a tontine, the creator may choose to cancel it. This will permanently prevent the tontine from proceeding. In this state, the only action people may take is to withdraw their funds.
+### Someone leaves a staging tontine
+If someone decides part way through the establishment of a tontine that they don't want to participate in the tontine, they may withdraw. This will revoke their ability to re-enter the tontine.
+
+### The creator cancels a staging tontine
+If the creator decides part way through the establishment of a tontine that they don't want to proceed with the tontine, they may cancel it. Anyone who contributed their share will have that share returned to them.
 
 ### Someone new is added to a staging tontine
-When you first add funds, you can clearly see who else was invited to the tontine. If someone new is added after this point (which is only possible prior to locking the tontine), you must confirm again that you wish to take part in the tontine. This mechanism exists to ensure that someone else isn't added without your knowledge, and gives you the opportunity to leave if you don't want to participate in the tontine given the ne wset of members.
+When you first add funds, you can clearly see who else was invited to the tontine. If someone new is added after this point (which is only possible prior to locking the tontine), you must confirm again that you wish to take part in the tontine. This mechanism exists to ensure that someone else isn't added without your knowledge, and gives you the opportunity to leave if you don't want to participate in the tontine given the new set of members.
+
+### Someone is removed from a staging tontine
+The creator may choose to remove someone from a staging tontine. If that person already contributed their share, it will be returned to them.
 
 ### No one claims the funds
-Normally, once only one person remains who has checked in recently, they will claim the funds. However, there is a chance that they don't claim the funds within this window. In this case, the tontine will transition into fallback mode, in which anyone (not just those in the tontine) may execute the fallback policy.
+Normally, once only one person remains who has checked in recently, they will claim the funds. However, there is a chance that they don't claim the funds within this window. In this case, the tontine will transition into fallback mode, in which case anyone (not just those in the tontine) may execute the fallback policy.
 
 ## FAQ
 Q: Can I make the tontine with assets besides APT?
