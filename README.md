@@ -69,3 +69,6 @@ A: For now, no, but I'm considering how you might do this: https://github.com/ba
 
 Q: Is there a way to direct the account holding the tontine funds to take investment actions, such as using liquid staking or purchasing NFTs?
 A: Not right now, but it's on the roadmap: https://github.com/banool/aptos-tontine/issues/1, https://github.com/banool/aptos-tontine/issues/2.
+
+Q: In real life / fictional tontines, it is generally a rule that attempting to "take out" a member of the tontine would get you kicked out of the tontine, so as to discourage people on forcibly making themselves the last member standing. How is this enforced with the Aptos tontine?
+A: Currently, it is not. Theoretically a tontine could be created with a DAO attached, in which, if every other remaining member votes to do so, they could kick a member out of the DAO (except in the 2 people remaining case). This could obviously lead to all kinds of off chain collusion / corruption however, so for now I've chosen to leave this is an unsolved problem.
