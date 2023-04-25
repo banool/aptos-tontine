@@ -26,42 +26,63 @@ A tontine using this Move module proceeds through the following lifecycle.
 ### Creator establishes a "staging" tontine
 Alice creates a "staging" tontine. In this she specifies:
 
-- People (addresses) to be included in the tontine.
-- How much each person should contribute to the tontine.
-- How often people must check in to prove they're still in control of their account (see below).
+- Members (addresses) to be included in the tontine.
+- How much each member should contribute to the tontine.
+- How often each member must check in to prove they're still in control of their account (see below).
 - What happens if no one checks in within an interval. Options include:
-    - All funds get returned to the original accounts.
-    - Funds go to a preconfigured arbitrary account.
+  - All funds get returned to the original accounts.
+  - Funds go to a preconfigured arbitrary account.
+  - Funds are burned (or locked up forever).
+
+This corresponds to `OVERALL_STATUS_STAGING`.
 
 ### Everyone commits funds to the tontine
-Once the staging tontine has been created, people commit funds to it. So long as the tontine is in the staging period, people may withdraw their funds again if they want.
+Once the staging tontine has been created, each member commits funds to it.
+
+Once this is complete, this corresponds to `OVERALL_STATUS_CAN_BE_LOCKED`.
 
 ### A member locks the tontine
-Once everyone has committed their funds to the tontine (and only then), any party to the tontine can lock it (not just the original creator).
+Once all members have committed their funds to the tontine (and only then), any member of the tontine can lock it (not just the original creator).
+
+This corresponds to `OVERALL_STATUS_LOCKED`.
 
 ### Members check in with the tontine
-To prove that you're still in control of your account / alive, users must check in periodically with the tontine. Given this costs gas, ideally this is infrequent, e.g. every 3 months.
+To prove that a member is still in control of their account / alive, they must check in periodically with the tontine. Given this costs gas, ideally this is infrequent, e.g. once every few months.
+
+### All members but one fail to check in
+Over time, members will cease checking in and eventually all but one will become ineligible to claim the funds. From this point, the last member standing is able to claim the funds up until their next latest check in time + the grace period.
+
+This corresponds to `OVERALL_STATUS_FUNDS_CLAIMABLE`.
 
 ### The last member standing claims the funds
-Over time, people will cease checking in and become ineligible to claim the tontine. Once only one eligible individual remains, they may redeem the total value of the tontine to their account.
+The last standing member claims the funds.
+
+This corresponds to `OVERALL_STATUS_FUNDS_CLAIMED`.
 
 ## Irregular lifecycle events
 Above describes the standard flow, there are other lifecycle events that may occur.
 
-### Someone leaves a staging tontine
-If someone decides part way through the establishment of a tontine that they don't want to participate in the tontine, they may withdraw. This will revoke their ability to re-enter the tontine.
+### The creator adds a new member to a staging tontine
+While a tontine is in the staging state, the creator may choose to add a new member to the tontine. This will trigger a "reconfirmation" (see below).
 
-### The creator cancels a staging tontine
-If the creator decides part way through the establishment of a tontine that they don't want to proceed with the tontine, they may cancel it. Anyone who contributed their share will have that share returned to them.
+### The creator removes a member from a staging tontine
+While a tontine is in the staging state, the creator may choose to remove a new member from the tontine. If they have contributed funds, this will return their funds to them. This will trigger a "reconfirmation" (see below).
 
-### Someone new is added to a staging tontine
-When you first add funds, you can clearly see who else was invited to the tontine. If someone new is added after this point (which is only possible prior to locking the tontine), you must confirm again that you wish to take part in the tontine. This mechanism exists to ensure that someone else isn't added without your knowledge, and gives you the opportunity to leave if you don't want to participate in the tontine given the new set of members.
+### A member chooses to leave a staging tontine
+While a tontine is in the staging state, any member may choose to withdraw from the tontine. If they have contributed funds, this will return their funds to them. This will revoke their ability to re-enter the tontine and trigger a "reconfirmation" (see below).
 
-### Someone is removed from a staging tontine
-The creator may choose to remove someone from a staging tontine. If that person already contributed their share, it will be returned to them.
+If the creator leaves a staging tontine, this will cancel the tontine completely and return any funds to the members, which corresponds to `OVERALL_STATUS_CANCELLED`.
+
+### The creator alters a configuration value
+It is possible to change some configuration values (anything in `TontineConfig`) while the tontine is in the staging state. If this happens it triggers a "reconfirmation" (see below).
+
+### Reconfirmation
+If a member is added or leaves a staging tontine, a reconfirmation is triggered. If this happens, all members must call `reconfirm` to indicate that they still want to be part of the tontine given the recent changes. This mechanism exists to ensure that a tontine isn't changed and then locked at the final hour under the noses of the members.
 
 ### No one claims the funds
-Normally, once only one person remains who has checked in recently, they will claim the funds. However, there is a chance that they don't claim the funds within this window. In this case, the tontine will transition into fallback mode, in which case anyone (not just those in the tontine) may execute the fallback policy.
+Throughout the course of the tontine eventually one member will be the last one who checked in during the check in window. However, if that member fails to claim the funds after this point + the grace period, the tontine will transition into fallback mode, in which case anyone (not just those in the tontine) may execute the fallback policy.
+
+This initially corresponds to `OVERALL_STATUS_FUNDS_UNCLAIMED` and then `OVERALL_STATUS_FALLBACK_INVOKED`
 
 ## FAQ
 Q: Can I make the tontine with assets besides APT?
@@ -70,5 +91,8 @@ A: For now, no, but I'm considering how you might do this: https://github.com/ba
 Q: Is there a way to direct the account holding the tontine funds to take investment actions, such as using liquid staking or purchasing NFTs?
 A: Not right now, but it's on the roadmap: https://github.com/banool/aptos-tontine/issues/1, https://github.com/banool/aptos-tontine/issues/2.
 
-Q: In real life / fictional tontines, it is generally a rule that attempting to "take out" a member of the tontine would get you kicked out of the tontine, so as to discourage people on forcibly making themselves the last member standing. How is this enforced with the Aptos tontine?
-A: Currently, it is not. Theoretically a tontine could be created with a DAO attached, in which, if every other remaining member votes to do so, they could kick a member out of the DAO (except in the 2 people remaining case). This could obviously lead to all kinds of off chain collusion / corruption however, so for now I've chosen to leave this is an unsolved problem.
+Q: In real life / fictional tontines, it is generally a rule that attempting to "take out" a member of the tontine would get you kicked out of the tontine, so as to discourage people forcibly making themselves the last member standing. How is this enforced with the Aptos tontine?
+A: It is not. Theoretically a tontine could be created with governance attached, in which, if every other remaining member votes to do so, they could kick a member out of the tontine (except in the case where only 2 members remain remaining case). This could obviously lead to all kinds of off chain collusion / corruption however, so for now I've chosen to leave this is an unsolved problem.
+
+## Thoughts
+So one issue with this is unless I publish the module in immutable mode, it is possible for me to alter the contract and yank the funds from tontines. Resource accounts are one way to solve this, but that would still be immutable mode effectively. I wonder if objects would be a way for me to make this, where the base funcionality can't be altered but extensions can be landed later on that tontine members could all choose to opt in to? Would that affect the integrity of the tontine though? More thought on this is required, for now just do immutable mode.
