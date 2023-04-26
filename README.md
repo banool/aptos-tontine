@@ -96,3 +96,5 @@ A: It is not. Theoretically a tontine could be created with governance attached,
 
 ## Thoughts
 So one issue with this is unless I publish the module in immutable mode, it is possible for me to alter the contract and yank the funds from tontines. Resource accounts are one way to solve this, but that would still be immutable mode effectively. I wonder if objects would be a way for me to make this, where the base funcionality can't be altered but extensions can be landed later on that tontine members could all choose to opt in to? Would that affect the integrity of the tontine though? More thought on this is required, for now just do immutable mode.
+
+Todo figure out how people will know they were invited to a tontine. The classic question really, go find that post in #move. If the event type field was indexed it'd be pretty easy.
