@@ -14,13 +14,15 @@ module addr::tontine {
     use aptos_std::simple_map::{Self, SimpleMap};
 
     #[test_only]
-    use aptos_framework::account;
-    #[test_only]
-    use aptos_framework::coin::MintCapability;
-    #[test_only]
     use std::string;
     #[test_only]
     use std::timestamp;
+    #[test_only]
+    use aptos_framework::account;
+    #[test_only]
+    use aptos_framework::coin::MintCapability;
+    //#[test_only]
+    //use aptos_std::debug;
 
     /// Used when the caller tries to use a function that requires a TontineStore to
     /// exist on their account but it does not yet exist.
@@ -271,6 +273,15 @@ module addr::tontine {
         assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
         let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
 
+        contribute_inner(member, creator, tontine, contribution_amount_octa)
+    }
+
+    fun contribute_inner(
+        member: &signer,
+        creator: address,
+        tontine: &mut Tontine,
+        contribution_amount_octa: u64,
+    ) {
         // Assert the tontine hasn't been cancelled in staging.
         assert!(!is_cancelled_inner(tontine, &creator), error::invalid_state(E_TONTINE_CANCELLED));
 
@@ -290,24 +301,6 @@ module addr::tontine {
         }
 
         // todo, consider emitting event.
-    }
-
-    /// Withdraw funds from a tontine.
-    public entry fun withdraw(
-        member: &signer,
-        creator: address,
-        index: u32,
-        withdrawal_amount_octa: u64,
-    ) acquires TontineStore {
-        // Assert a TontineStore exists on the creator's account.
-        assert!(exists<TontineStore>(creator), error::invalid_state(E_TONTINE_STORE_NOT_FOUND));
-
-        // Get the tontine.
-        let tontine_store = borrow_global_mut<TontineStore>(creator);
-        assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
-        let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
-
-        withdraw_inner(member, tontine, withdrawal_amount_octa)
     }
 
     fun withdraw_inner(
@@ -330,9 +323,8 @@ module addr::tontine {
         };
     }
 
-    /// Leave a tontine. If the caller has funds in the tontine, they will be returned
-    /// to them.
-    public entry fun leave(
+    /// Withdraw funds from a tontine.
+    public entry fun withdraw(
         member: &signer,
         creator: address,
         index: u32,
@@ -346,17 +338,43 @@ module addr::tontine {
         assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
         let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
 
+        withdraw_inner(member, tontine, withdrawal_amount_octa)
+    }
+
+    fun leave_inner(
+        member: &signer,
+        tontine: &mut Tontine,
+    ) {
         let member_addr = signer::address_of(member);
 
         // Withdraw funds if necessary.
         if (simple_map::contains_key(&tontine.contributions, &member_addr)) {
-            withdraw_inner(member, tontine, withdrawal_amount_octa)
+            let value = coin::value(simple_map::borrow(&tontine.contributions, &member_addr));
+            withdraw_inner(member, tontine, value);
         };
 
         // Leave the tontine.
         let (in_tontine, i) = vector::index_of(&tontine.config.members, &member_addr);
         assert!(in_tontine, error::invalid_state(E_CALLER_NOT_IN_TONTINE));
         vector::remove(&mut tontine.config.members, i);
+    }
+
+    /// Leave a tontine. If the caller has funds in the tontine, they will be returned
+    /// to them.
+    public entry fun leave(
+        member: &signer,
+        creator: address,
+        index: u32,
+    ) acquires TontineStore {
+        // Assert a TontineStore exists on the creator's account.
+        assert!(exists<TontineStore>(creator), error::invalid_state(E_TONTINE_STORE_NOT_FOUND));
+
+        // Get the tontine.
+        let tontine_store = borrow_global_mut<TontineStore>(creator);
+        assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
+        let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
+
+        leave_inner(member, tontine)
     }
 
     #[view]
@@ -377,7 +395,7 @@ module addr::tontine {
     /// If the creator leaves a tontine we consider it cancelled and do not allow any
     /// further actions (including them rejoining) besides withdrawing funds.
     fun is_cancelled_inner(tontine: &Tontine, creator: &address): bool {
-        vector::contains(&tontine.config.members, creator)
+        !vector::contains(&tontine.config.members, creator)
     }
 
     /// Get the time a member last checked in.
@@ -493,25 +511,15 @@ module addr::tontine {
         // Get the tontine.
         let tontine_store = borrow_global_mut<TontineStore>(creator);
         assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
-        let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
+        let tontine = simple_map::borrow(&tontine_store.tontines, &index);
 
         let statuses = get_member_statuses_inner(tontine);
         let (_, v) = simple_map::remove(&mut statuses, &member);
         v
     }
 
-    #[view]
-    /// Get the status of the tontine.
-    fun get_overall_status(creator: address, index: u32): u8 acquires TontineStore {
-        // Assert a TontineStore exists on the creator's account.
-        assert!(exists<TontineStore>(creator), error::invalid_state(E_TONTINE_STORE_NOT_FOUND));
-
-        // Get the tontine.
-        let tontine_store = borrow_global_mut<TontineStore>(creator);
-        assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
-        let tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &index);
-
-        if (is_cancelled_inner(tontine, &creator)) {
+    fun get_overall_status_inner(tontine: &Tontine, creator: &address): u8 {
+        if (is_cancelled_inner(tontine, creator)) {
             return OVERALL_STATUS_CANCELLED
         };
 
@@ -566,6 +574,20 @@ module addr::tontine {
         OVERALL_STATUS_LOCKED
     }
 
+    #[view]
+    /// Get the status of the tontine.
+    fun get_overall_status(creator: address, index: u32): u8 acquires TontineStore {
+        // Assert a TontineStore exists on the creator's account.
+        assert!(exists<TontineStore>(creator), error::invalid_state(E_TONTINE_STORE_NOT_FOUND));
+
+        // Get the tontine.
+        let tontine_store = borrow_global_mut<TontineStore>(creator);
+        assert!(simple_map::contains_key(&tontine_store.tontines, &index), error::invalid_state(E_TONTINE_NOT_FOUND));
+        let tontine = simple_map::borrow(&tontine_store.tontines, &index);
+
+        get_overall_status_inner(tontine, &creator)
+    }
+
     #[test_only]
     fun create_test_account(
         mint_cap: &MintCapability<AptosCoin>,
@@ -602,20 +624,20 @@ module addr::tontine {
         timestamp::update_global_time_for_test_secs(timestamp);
     }
 
-    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
-    fun test_create(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires TontineStore {
+    #[test_only]
+    fun create_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Tontine acquires TontineStore {
         let time = 1;
-        set_global_time(&aptos_framework, time);
+        set_global_time(aptos_framework, time);
 
-        let mint_cap = get_mint_cap(&aptos_framework);
-        create_test_account(&mint_cap, &creator);
-        create_test_account(&mint_cap, &friend1);
-        create_test_account(&mint_cap, &friend2);
+        let mint_cap = get_mint_cap(aptos_framework);
+        create_test_account(&mint_cap, creator);
+        create_test_account(&mint_cap, friend1);
+        create_test_account(&mint_cap, friend2);
         coin::destroy_mint_cap(mint_cap);
 
-        let creator_addr = signer::address_of(&creator);
-        let friend1_addr = signer::address_of(&friend1);
-        let friend2_addr = signer::address_of(&friend2);
+        let creator_addr = signer::address_of(creator);
+        let friend1_addr = signer::address_of(friend1);
+        let friend2_addr = signer::address_of(friend2);
 
         let members = vector::empty();
         vector::push_back(&mut members, friend1_addr);
@@ -623,9 +645,98 @@ module addr::tontine {
 
         let check_in_frequency_secs = 60 * 60 * 24 * 30;
         let grace_period_secs = 60 * 60 * 24 * 30;
-        create(&creator, members, check_in_frequency_secs, grace_period_secs, 10000);
+        create(creator, members, check_in_frequency_secs, grace_period_secs, 10000);
 
         let tontine_store = borrow_global_mut<TontineStore>(creator_addr);
-        let _tontine = simple_map::borrow_mut(&mut tontine_store.tontines, &0);
+        let (_k, v) = simple_map::remove(&mut tontine_store.tontines, &0);
+        v
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_create(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires TontineStore {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        let creator_addr = signer::address_of(&creator);
+
+        let tontine_store = borrow_global_mut<TontineStore>(creator_addr);
+        simple_map::add(&mut tontine_store.tontines, 0, tontine);
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_status_reporting(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires TontineStore {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        let creator_addr = signer::address_of(&creator);
+        let friend1_addr = signer::address_of(&friend1);
+        let friend2_addr = signer::address_of(&friend2);
+
+        // See that everyone is marked as needing to contribute to begin with.
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &creator_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &friend1_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &friend2_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+
+        // See that the overall status is still staging.
+        assert!(get_overall_status_inner(&tontine, &creator_addr) == OVERALL_STATUS_STAGING, 0);
+
+        // Contribute less than the required amount, see that they will still be
+        // marked as needing to contribute funds.
+        contribute_inner(&friend1, creator_addr, &mut tontine, 5000);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &friend1_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+
+        // Contribute the rest and see that they get marked as ready.
+        contribute_inner(&friend1, creator_addr, &mut tontine, 5000);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &friend1_addr) == MEMBER_STATUS_READY, 0);
+
+        // See that the other members still have the same status.
+        contribute_inner(&friend1, creator_addr, &mut tontine, 5000);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &creator_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+        assert!(*simple_map::borrow(&get_member_statuses_inner(&tontine), &friend2_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
+
+        // See that the tontine overall status indicates it can be locked once
+        // all members contribute.
+        contribute_inner(&creator, creator_addr, &mut tontine, 10000);
+        contribute_inner(&friend2, creator_addr, &mut tontine, 10000);
+        assert!(get_overall_status_inner(&tontine, &creator_addr) == OVERALL_STATUS_CAN_BE_LOCKED, 0);
+
+        let tontine_store = borrow_global_mut<TontineStore>(creator_addr);
+        simple_map::add(&mut tontine_store.tontines, 0, tontine);
+    }
+
+    #[expected_failure(abort_code = 196617, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cancellation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires TontineStore {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        let creator_addr = signer::address_of(&creator);
+        // let friend1_addr = signer::address_of(&friend1);
+        // let friend2_addr = signer::address_of(&friend2);
+
+        // Contribute funds as the creator and friend1.
+        contribute_inner(&creator, creator_addr, &mut tontine, 5000);
+        contribute_inner(&friend1, creator_addr, &mut tontine, 5000);
+
+        // As the creator, leave the tontine.
+        leave_inner(&creator, &mut tontine);
+
+        // Confirm that the creator is no longer in the tontine.
+        assert!(!simple_map::contains_key(&get_member_statuses_inner(&tontine), &creator_addr), 0);
+
+        // Confirm that the overall status is cancelled.
+        assert!(get_overall_status_inner(&tontine, &creator_addr) == OVERALL_STATUS_CANCELLED, 0);
+
+        // Confirm that others can still withdraw and leave.
+        withdraw_inner(&friend1, &mut tontine, 5000);
+
+        // Leaving should also work, which withdraws if necessary.
+        leave_inner(&friend2, &mut tontine);
+
+        // Confirm that others can no longer perform actions like contribute.
+        // This call should result in the error we're looking for in the
+        // expected_failure attribute above.
+        contribute_inner(&friend1, creator_addr, &mut tontine, 5000);
+
+        let tontine_store = borrow_global_mut<TontineStore>(creator_addr);
+        simple_map::add(&mut tontine_store.tontines, 0, tontine);
     }
 }
+
