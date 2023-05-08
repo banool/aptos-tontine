@@ -1,3 +1,38 @@
+todo:
+
+https://github.com/aptos-labs/aptos-core/blob/734794423974a14ff7aa8f7f0de36c2a0019bc82/developer-docs-site/docs/standards/object.md
+
+This doc says you can do this:
+```
+public entry fun modify_reserves(liquidity_pool: Object<LiquidityPool>) {
+    let liquidity_pool = &mut borrow_global_mut<LiquidityPool>(liquidity_pool);
+    liquidity_pool.reserves_a = liquidity_pool.reserves_a + 1000;
+}
+```
+
+But you can't, you have to use the address of the object, not the object itself.
+
+another thing, why isn't this possible:
+```
+    fun get_tontine(tontine_address: address): (&Tontine, address) acquires Tontine {
+        let object = object::address_to_object<Tontine>(tontine_address);
+        let owner_address = object::owner<Tontine>(object);
+        let tontine = borrow_global<Tontine>(tontine_address);
+        (tontine, owner_address)
+    }
+```
+
+```
+error: invalid return of locally borrowed state
+    ┌─ /Users/dport/github/aptos-tontine/move/sources/tontine.move:287:9
+    │
+287 │         (borrow_global<Tontine>(tontine_address), owner_address)
+    │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    │         ││
+    │         │It is still being borrowed by this reference
+    │         Invalid return. Resource variable 'Tontine' is still being borrowed.
+```
+
 # Aptos Tontine
 > Works of fiction ... often feature a variant model of the tontine in which the capital devolves upon the last surviving nominee, thereby dissolving the trust and potentially making the survivor very wealthy. It is unclear whether this model ever existed in the real world.
 
