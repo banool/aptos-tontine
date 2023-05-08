@@ -28,8 +28,8 @@ module addr::tontine {
     /// exist on their account but it does not yet exist.
     const E_NOT_INITIALIZED: u64 = 1;
 
-    /// The `members` list was empty.
-    const E_CREATION_MEMBERS_EMPTY: u64 = 2;
+    /// The `invitees` list was empty.
+    const E_CREATION_INVITEES_EMPTY: u64 = 2;
 
     /// `per_member_amount_octa` was zero.
     const E_CREATION_PER_MEMBER_AMOUNT_ZERO: u64 = 3;
@@ -238,13 +238,13 @@ module addr::tontine {
     // No fallback policy for now, not yet implemented. Look into enums.
     public entry fun create(
         creator: &signer,
-        members: vector<address>,
+        invitees: vector<address>,
         check_in_frequency_secs: u64,
         grace_period_secs: u64,
         per_member_amount_octa: u64,
     ) acquires TontineStore {
         // Assert some details about the tontine parameters.
-        assert!(!vector::is_empty(&members), error::invalid_argument(E_CREATION_MEMBERS_EMPTY));
+        assert!(!vector::is_empty(&invitees), error::invalid_argument(E_CREATION_INVITEES_EMPTY));
         assert!(check_in_frequency_secs > 60, error::invalid_argument(E_CREATION_CHECK_IN_FREQUENCY_OUT_OF_RANGE));
         assert!(check_in_frequency_secs < 60 * 60 * 24 * 365, error::invalid_argument(E_CREATION_CHECK_IN_FREQUENCY_OUT_OF_RANGE));
         assert!(grace_period_secs > 60 * 60 * 24, error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL));
@@ -259,15 +259,15 @@ module addr::tontine {
             move_to(creator, tontine_store);
         };
 
-        // Add the creator's address to `members` if necessary.
-        if (!vector::contains(&members, &creator_addr)) {
-            vector::push_back(&mut members, creator_addr);
+        // Add the creator's address to `invitees` if necessary.
+        if (!vector::contains(&invitees, &creator_addr)) {
+            vector::push_back(&mut invitees, creator_addr);
         };
 
         // Build the TontineConfig. We modify some of the arguments above (e.g.
-        // `members`) so this isn't a direct mapping of the inputs.
+        // `invitees`) so this isn't a direct mapping of the inputs.
         let tontine_config = TontineConfig {
-            members: members,
+            members: invitees,
             per_member_amount_octa: per_member_amount_octa,
             check_in_frequency_secs: check_in_frequency_secs,
             grace_period_secs: grace_period_secs,
