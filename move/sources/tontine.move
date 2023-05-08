@@ -9,8 +9,9 @@ module addr::tontine {
     use std::signer;
     use std::vector;
     use std::timestamp::now_seconds;
-    use aptos_framework::coin::{Self, Coin};
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::event::{Self, EventHandle};
     use aptos_std::object::{Self, Object};
     use aptos_std::simple_map::{Self, SimpleMap};
 
@@ -156,6 +157,7 @@ module addr::tontine {
 
     // TODO: Use a set for `reconfirmation_required` and `members`.
 
+    #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
     /// todo
     struct Tontine has key, store {
         /// The parameters used to configure initial creation of the tontine.
@@ -194,6 +196,15 @@ module addr::tontine {
 
         /// True if the fallback policy was executed.
         fallback_executed: bool,
+
+        // Events emitted for various lifecycle events.
+        tontine_created_events: EventHandle<TontineCreatedEvent>, // todo: this one might be unnecessary
+        member_invited_events: EventHandle<MemberInvitedEvent>,
+        member_removed_events: EventHandle<MemberRemovedEvent>,
+        member_contributed_events: EventHandle<MemberContributedEvent>,
+        member_withdrew_events: EventHandle<MemberWithdrewEvent>,
+        member_left_events: EventHandle<MemberLeftEvent>,
+        tontine_locked_events: EventHandle<TontineLockedEvent>,
     }
 
     struct TontineConfig has store {
@@ -222,6 +233,35 @@ module addr::tontine {
 
     }
 
+    struct TontineCreatedEvent has store, drop {
+        creator: address,
+        object_address: address,
+    }
+
+    struct MemberInvitedEvent has store, drop {
+        member: address,
+    }
+
+    struct MemberRemovedEvent has store, drop {
+        member: address,
+    }
+
+    struct MemberContributedEvent has store, drop {
+        member: address,
+        amount_octa: u64,
+    }
+
+    struct MemberWithdrewEvent has store, drop {
+        member: address,
+        amount_octa: u64,
+    }
+
+    struct MemberLeftEvent has store, drop {
+        member: address,
+    }
+
+    struct TontineLockedEvent has store, drop {}
+
     /// todo explain
     /// testing.
     // TODO: Use the TontineConfig struct directly when that is possible.
@@ -238,8 +278,9 @@ module addr::tontine {
         create_(creator, invitees, check_in_frequency_secs, grace_period_secs, per_member_amount_octa);
     }
 
-    /// also explain that we return an Object<Tontine> here just for the benefit of testing.
-    /// that's the only reason this function exists in fact
+    /// This function is separate from the top level create function so we can use it
+    /// tests. This is necessary because entry functions (correctly) cannot return
+    /// anything but we need it to return the object with the tontine in it.
     fun create_(
         creator: &signer,
         invitees: vector<address>,
@@ -262,6 +303,22 @@ module addr::tontine {
             vector::push_back(&mut invitees, creator_addr);
         };
 
+        // Create a new object.
+        let constructor_ref = &object::create_object_from_account(creator);
+        let object_signer = &object::generate_signer(constructor_ref);
+
+        // Emit an event for each invitee.
+        let member_invited_events = object::new_event_handle(object_signer);
+        let len = vector::length(&invitees);
+        let i = 0;
+        while (i < len) {
+            let invitee = *vector::borrow(&invitees, i);
+            event::emit_event(&mut member_invited_events, MemberInvitedEvent {
+                member: invitee,
+            });
+            i = i + 1;
+        };
+
         // Build the TontineConfig. We modify some of the arguments above (e.g.
         // `invitees`) so this isn't a direct mapping of the inputs.
         let tontine_config = TontineConfig {
@@ -273,6 +330,7 @@ module addr::tontine {
         };
 
         // Create the Tontine.
+        let tontine_created_events = object::new_event_handle(object_signer);
         let tontine = Tontine {
             config: tontine_config,
             creation_time_secs: now_seconds(),
@@ -283,14 +341,21 @@ module addr::tontine {
             funds_claimed_secs: 0,
             funds_claimed_by: option::none(),
             fallback_executed: false,
+            tontine_created_events,
+            member_invited_events,
+            member_removed_events: object::new_event_handle(object_signer),
+            member_contributed_events: object::new_event_handle(object_signer),
+            member_withdrew_events: object::new_event_handle(object_signer),
+            member_left_events: object::new_event_handle(object_signer),
+            tontine_locked_events: object::new_event_handle(object_signer),
         };
 
-        // Add the Tontine into the TontineStore.
-        // Create an object and store the Tontine on it. For now there is no on-chain
-        // link from the creator's account to the object.
+        // Emit an event so the creator of the Tontine and its location can be discovered.
+        event::emit_event(&mut tontine.tontine_created_events, TontineCreatedEvent {
+            creator: creator_addr,
+            object_address: object::address_from_constructor_ref(constructor_ref),
+        });
 
-        let constructor_ref = &object::create_object_from_account(creator);
-        let object_signer = &object::generate_signer(constructor_ref);
         move_to(object_signer, tontine);
 
         object::object_from_constructor_ref(constructor_ref)
@@ -322,8 +387,13 @@ module addr::tontine {
         } else {
             // The contributor has not contributed yet.
             simple_map::add(&mut tontine_.contributions, member_addr, contribution);
-        }
-        // todo, consider emitting event.
+        };
+
+        // Emit an event.
+        event::emit_event(&mut tontine_.member_contributed_events, MemberContributedEvent {
+            member: member_addr,
+            amount_octa: contribution_amount_octa,
+        });
     }
 
     public entry fun withdraw(
@@ -353,6 +423,12 @@ module addr::tontine {
         } else {
             simple_map::add(&mut tontine_.contributions, member_addr, contribution);
         };
+
+        // Emit an event.
+        event::emit_event(&mut tontine_.member_withdrew_events, MemberWithdrewEvent {
+            member: member_addr,
+            amount_octa: withdrawal_amount_octa,
+        });
     }
 
     /// Leave a tontine. If the caller has funds in the tontine, they will be returned
@@ -368,6 +444,11 @@ module addr::tontine {
         let (in_tontine, i) = vector::index_of(&tontine_.config.members, &member_addr);
         assert!(in_tontine, error::invalid_state(E_CALLER_NOT_IN_TONTINE));
         vector::remove(&mut tontine_.config.members, i);
+
+        // Emit an event.
+        event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
+            member: member_addr,
+        });
 
         // Withdraw funds if necessary.
         if (simple_map::contains_key(&tontine_.contributions, &member_addr)) {
@@ -396,6 +477,9 @@ module addr::tontine {
 
         // Set the locked_time_secs to the current time.
         tontine_.locked_time_secs = now_seconds();
+
+        // Emit an event.
+        event::emit_event(&mut tontine_.tontine_locked_events, TontineLockedEvent {});
     }
 
     /// Get the time a member last checked in.
