@@ -1,40 +1,40 @@
 import { UseQueryResult, useQuery } from "react-query";
 import { useGlobalState } from "../../GlobalState";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { getAnsName } from "..";
-import { getShortAddress } from "../../utils";
+import { NetworkName } from "../../constants";
 
-export type TontineMembership = {
-  tontine_address: string;
-  is_creator: boolean;
+export type AnsLookup = {
+  address: string;
+  name: string | undefined;
 };
 
-export function useGetAnsName(
-  address: string,
+const fetchNames = async (
+  addresses: string[],
+  network_name: NetworkName,
+): Promise<AnsLookup[]> => {
+  return await Promise.all(
+    addresses.map(async (address: any) => {
+      return {
+        address,
+        name: await getAnsName(address, network_name),
+      };
+    }),
+  );
+};
+
+export function useGetAnsNames(
+  addressesFn: () => string[],
   options: {
     enabled?: boolean;
-    // If true, return a shortened version of the address
-    // if there is no name after the lookup.
-    shorten?: boolean;
   } = {},
-): string {
+): UseQueryResult<AnsLookup[]> {
   const [state, _setState] = useGlobalState();
 
-  const result = useQuery(
-    ["tontineMembership", { address }, state.network_value],
+  return useQuery(
+    ["ansNames", { addressesFn }, state.network_value],
     async () => {
-      return getAnsName(address, state.network_name);
+      return fetchNames(addressesFn(), state.network_name);
     },
     { refetchOnWindowFocus: false, enabled: options.enabled },
   );
-
-  if (result.data) {
-    return result.data;
-  }
-
-  if (options.shorten) {
-    return getShortAddress(address);
-  }
-
-  return address;
 }

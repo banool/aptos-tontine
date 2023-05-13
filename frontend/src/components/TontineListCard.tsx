@@ -6,6 +6,7 @@ import {
   CardHeader,
   Heading,
   Tooltip,
+  useColorMode,
 } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { getShortAddress, interleave } from "../utils";
@@ -13,6 +14,7 @@ import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { getAnsName } from "../api";
 import { useEffect, useState } from "react";
+import { useGetAnsNames } from "../api/hooks/useGetAnsName";
 
 export function TontineListCard({
   tontine,
@@ -22,6 +24,7 @@ export function TontineListCard({
   active: boolean;
 }) {
   const [state, _] = useGlobalState();
+  const colorMode = useColorMode();
 
   const moduleId = getModuleId(state);
 
@@ -30,32 +33,20 @@ export function TontineListCard({
     `${moduleId}::Tontine`,
   );
 
-  const [names, setNames] = useState<
-    { address: string; name: string | undefined }[]
-  >([]);
+  console.log(accountResource);
 
-  useEffect(() => {
-    if (accountResource !== undefined) {
-      const data = accountResource.data as any;
-
-      Promise.all(
-        data.config.members.map(async (address: any) => {
-          return {
-            address,
-            name: await getAnsName(address, state.network_name),
-          };
-        }),
-      )
-        .then((result) => setNames(result))
-        .catch((e) => console.error(`ANS lookup error: ${e}`));
-    }
-  }, [accountResource, state.network_name]);
+  const { data: names } = useGetAnsNames(
+    () => (accountResource!.data as any).config.members,
+    {
+      enabled: accountResource !== undefined,
+    },
+  );
 
   var title = "Loading...";
   var members = null;
   if (error) {
     title = `Error fetching tontine: ${error}`;
-  } else if (names && accountResource) {
+  } else if (accountResource && names) {
     title = (accountResource.data as any).config.name;
     var elements = [];
     for (var { address, name } of names) {
@@ -77,10 +68,12 @@ export function TontineListCard({
     members = interleave(elements, <Text as="span">{", "}</Text>);
   }
 
+  const selectedColor = colorMode.colorMode == "dark" ? "#172131" : "gray.300";
+
   return (
     <Box p={2}>
       <Card
-        bg={active ? "#172131" : undefined}
+        bg={active ? selectedColor : undefined}
         borderWidth="1px"
         borderColor={active ? "white" : "transparent"}
       >

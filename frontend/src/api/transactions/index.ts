@@ -12,44 +12,19 @@ async function submitTransaction(
   });
 }
 
-export async function vest(
+export async function contribute(
   signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
   fullnodeUrl: string,
-  vestingContractAddresses: string[],
+  tontineAddress: string,
+  amountInOcta: number,
 ) {
   const transaction = {
     type: "entry_function_payload",
-    function: `0x1::vesting::vest_many`,
+    function: `${moduleId}::contribute`,
     type_arguments: [],
-    arguments: [vestingContractAddresses],
+    arguments: [tontineAddress, amountInOcta],
   };
-  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
-}
-
-export async function unlockRewards(
-  signAndSubmitTransaction: (txn: any) => Promise<any>,
-  fullnodeUrl: string,
-  vestingContractAddresses: string[],
-) {
-  const transaction = {
-    type: "entry_function_payload",
-    function: `0x1::vesting::unlock_rewards_many`,
-    type_arguments: [],
-    arguments: [vestingContractAddresses],
-  };
-  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
-}
-
-export async function distribute(
-  signAndSubmitTransaction: (txn: any) => Promise<any>,
-  fullnodeUrl: string,
-  vestingContractAddresses: string[],
-) {
-  const transaction = {
-    type: "entry_function_payload",
-    function: `0x1::vesting::distribute_many`,
-    type_arguments: [],
-    arguments: [vestingContractAddresses],
-  };
+  console.log(transaction);
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }

@@ -181,3 +181,15 @@ export function useBuildExplorerUrl(accountAddress: string): string {
 export const interleave = (array: any[], ele: any) => {
   return array.flatMap((x) => [ele, x]).slice(1);
 };
+
+export const getContributionAmount = (
+  contributions: any,
+  address: string,
+): number => {
+  for (let i = 0; i < contributions.data.length; i++) {
+    if (contributions.data[i].key === address) {
+      return parseInt(contributions.data[i].value.value);
+    }
+  }
+  return 0;
+};

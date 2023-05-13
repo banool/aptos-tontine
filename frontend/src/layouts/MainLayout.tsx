@@ -53,7 +53,7 @@ export default function MainLayout({ children }: LayoutProps) {
 
   // Courtesy of https://stackoverflow.com/q/75175422/3846032.
   return (
-    <Box>
+    <Box display="flex" flexDirection="column" minHeight="100vh">
       <Box paddingTop={5} paddingBottom={5} paddingLeft={8} paddingRight={8}>
         <Flex alignItems="center" gap="2">
           <Flex alignItems="center" gap="2" flex="1">

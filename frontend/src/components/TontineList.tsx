@@ -1,14 +1,17 @@
-import { Box, Text, Spinner, Heading } from "@chakra-ui/react";
-import { useGetTontineMembership } from "../api/hooks/useGetTontineMembership";
+import { Box, Text, Spinner, Heading, Flex } from "@chakra-ui/react";
+import {
+  TontineMembership,
+  useGetTontineMembership,
+} from "../api/hooks/useGetTontineMembership";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { TontineListCard } from "./TontineListCard";
 
 export function TontineList({
-  activeAddress,
-  setActiveAddress,
+  activeTontine,
+  setActiveTontine,
 }: {
-  activeAddress: string | null;
-  setActiveAddress: (i: string | null) => void;
+  activeTontine: TontineMembership | null;
+  setActiveTontine: (a: TontineMembership | null) => void;
 }) {
   const { connected } = useWallet();
 
@@ -52,10 +55,13 @@ export function TontineList({
       const tontine = tontineMembershipData![i];
       const address = tontine.tontine_address;
       const card = (
-        <Box key={i} onClick={() => setActiveAddress(address)}>
+        <Box key={i} onClick={() => setActiveTontine(tontine)}>
           <TontineListCard
             tontine={tontine}
-            active={activeAddress !== null && activeAddress === address}
+            active={
+              activeTontine !== null &&
+              activeTontine.tontine_address === address
+            }
           />
         </Box>
       );
@@ -69,9 +75,25 @@ export function TontineList({
     if (creatorCards.length > 0 && otherCards.length > 0) {
       body = (
         <Box>
-          <Heading size="md">Tontines you created</Heading>
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="md"
+          >
+            Your tontines
+          </Heading>
           <Box>{creatorCards}</Box>
-          <Heading size="md">Tontines you're a member of</Heading>
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="md"
+          >
+            Tontines you've joined
+          </Heading>
           <Box>{otherCards}</Box>
         </Box>
       );
