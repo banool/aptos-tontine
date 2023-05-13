@@ -1,5 +1,6 @@
 import logging
 import os
+import typing
 
 from flask import Flask
 from flask_cors import CORS
@@ -29,10 +30,18 @@ def run_api(config: Config):
     def tontines(address):
         logging.info(f"Received request to get tontines for {address}")
         with Session(engine) as session:
-            objects = (
+            objects: typing.List[TontineMembership] = (
                 session.query(TontineMembership).filter_by(member_address=address).all()
             )
-        return [obj.tontine_address for obj in objects]
+        out = []
+        for o in objects:
+            out.append(
+                {
+                    "tontine_address": o.tontine_address,
+                    "is_creator": o.is_creator,
+                }
+            )
+        return out
 
     # This is only recommend for development purposes. For production deployment,
     # you're meant to use a proper web server stack like gunicorn + nginx.
