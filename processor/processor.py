@@ -1,19 +1,19 @@
-from config import Config
-from create_table import NextVersionToProcess, TontineMembership
-from tontine_parser import INDEXER_NAME, parse
-from aptos.indexer.v1 import raw_data_pb2_grpc
+import json
 
 import grpc
-from aptos.indexer.v1 import raw_data_pb2
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-import json
+from aptos.indexer.v1 import raw_data_pb2, raw_data_pb2_grpc
+from config import Config
+from create_table import NextVersionToProcess, TontineMembership
+from tontine_parser import INDEXER_NAME, parse
 
 
-def run_processor(config: Config, engine):
+def run_processor(config: Config):
     print("Starting processor...")
+
+    engine = create_engine(config.db_connection_uri)
 
     metadata = (
         ("x-aptos-data-authorization", config.indexer_api_key),

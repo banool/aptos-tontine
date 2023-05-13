@@ -1,16 +1,17 @@
+import argparse
+import logging
+from multiprocessing import Pool, set_start_method
+
 from api import run_api
+from aptos.indexer.v1 import raw_data_pb2
 from config import Config
 from processor import run_processor
-from threading import Thread
 
-import grpc
-from aptos.indexer.v1 import raw_data_pb2
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-
-import argparse
-import json
+LOG = logging.getLogger(__name__)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+LOG.addHandler(ch)
 
 
 def parse_config():
@@ -22,15 +23,11 @@ def parse_config():
 
 def main():
     config = parse_config()
-    engine = create_engine(config.db_connection_uri)
 
-    # Spawn the processor in the background.
-    handle = Thread(target=run_processor, args=(config, engine))
-    handle.start()
-
-    run_api(config, engine)
-
-    handle.join()
+    set_start_method("forkserver")
+    with Pool(5) as p:
+        p.map(run_api, [(config)])
+        p.map(run_processor, [(config)])
 
 
 if __name__ == "__main__":

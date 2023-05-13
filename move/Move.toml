@@ -1,5 +1,5 @@
 [package]
-name = "tontine"
+name = "tontine01"
 version = "0.0.1"
 
 [dependencies.AptosFramework]

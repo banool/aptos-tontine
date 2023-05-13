@@ -1,7 +1,9 @@
-from sqlalchemy import BigInteger, create_engine, DateTime, func, String
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
-from datetime import datetime
 import argparse
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, String, create_engine, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
 from config import Config
 
 

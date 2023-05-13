@@ -58,3 +58,11 @@ This makes the deposit flow very simple, but on the withdraw side, the withdrawe
 For the above options, there is further the decision to store the assets on the creator's account or in a resource account. For the basic functionality there isn't a concrete reason to use a resource account, besides helping with clarity.
 
 If the pool was in a resource account, if the user wanted they could send additional assets to the pool after the tontine was created. This isn't possible if the pool is on the creator account unless specific functions are provided. Saying that, only if the signer cap is transferred to the last member standing could they retrieve these additional assets, since the creator module would have no knowledge of those additional assets.
+
+## Helpful test commands
+
+Create tontine:
+```
+aptos move run --assume-yes --function-id 0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e::`cat Move.toml | grep -o 'tontine[0-9]*'`::create --args 'vector<address>:0x6286dfd5e2778ec069d5906cd774efdba93ab2bec71550fa69363482fbd814e7' u64:2592000 u64:2592000 u64:10000000
+```
+

@@ -3,7 +3,7 @@
 
 //! See the README for more information about how this tontine module works.
 
-module addr::tontine {
+module addr::tontine01 {
     use std::error;
     use std::option::{Self, Option};
     use std::signer;
@@ -233,9 +233,10 @@ module addr::tontine {
 
     }
 
+    // Note, we don't need to include the address of the object when we create it
+    // because the event will be emitted from the object itself.
     struct TontineCreatedEvent has store, drop {
         creator: address,
-        object_address: address,
     }
 
     struct MemberInvitedEvent has store, drop {
@@ -307,15 +308,17 @@ module addr::tontine {
         let constructor_ref = &object::create_object_from_account(creator);
         let object_signer = &object::generate_signer(constructor_ref);
 
-        // Emit an event for each invitee.
+        // Emit an event for each invitee except for the creator.
         let member_invited_events = object::new_event_handle(object_signer);
         let len = vector::length(&invitees);
         let i = 0;
         while (i < len) {
-            let invitee = *vector::borrow(&invitees, i);
-            event::emit_event(&mut member_invited_events, MemberInvitedEvent {
-                member: invitee,
-            });
+            let invitee = vector::borrow(&invitees, i);
+            if (invitee != &creator_addr) {
+                event::emit_event(&mut member_invited_events, MemberInvitedEvent {
+                    member: *invitee,
+                });
+            };
             i = i + 1;
         };
 
@@ -353,7 +356,6 @@ module addr::tontine {
         // Emit an event so the creator of the Tontine and its location can be discovered.
         event::emit_event(&mut tontine.tontine_created_events, TontineCreatedEvent {
             creator: creator_addr,
-            object_address: object::address_from_constructor_ref(constructor_ref),
         });
 
         move_to(object_signer, tontine);
@@ -494,10 +496,6 @@ module addr::tontine {
             *simple_map::borrow(&tontine.last_check_in_times_secs, member)
         }
     }
-
-    // TODO: Talk about the philosophy where top level functions take in Object<Tontine>
-    // and everything else lower down should too unless it would cause issues with dangling
-    // refs or something like that.
 
     /// Get the statuses of the members of the tontine.
     fun get_member_statuses(tontine: Object<Tontine>): SimpleMap<address, u8> acquires Tontine {
