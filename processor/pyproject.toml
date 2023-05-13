@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "member-group-processor"
+version = "0.1.0"
+description = "Processor for the member_group module"
+authors = ["Daniel Porteous <dport@aptoslabs.com>"]
+readme = "README.md"
+
+[tool.poe.tasks]
+lint = ["pyright", "format-check"]
+pyright = "pyright"
+format-check = "black --diff --check --exclude aptos ."
+format = "black --exclude aptos ."
+
+[tool.poetry.dependencies]
+python = "^3.11"
+grpcio = "^1.53.0"
+psycopg2 = "^2.9.6"
+PyYAML = "^6.0"
+SQLAlchemy = "^2.0.9"
+grpcio-tools = "^1.53.0"
+protobuf = "^4.22.3"
+pydantic = "^1.10.7"
+flask = "^2.3.2"
+flask-cors = "^3.0.10"
+
+[tool.poetry.group.dev.dependencies]
+grpcio-tools = "^1.53.0"
+black = "^23.3.0"
+pyright = "^1.1.305"
+poethepoet = "^0.19.0"
+
+[build-system]
+requires = ["poetry-core>=1.4.2"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+exclude = ["aptos"]

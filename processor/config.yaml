@@ -1,0 +1,8 @@
+chain_id: 2
+indexer_endpoint: "35.223.137.149:50051"
+indexer_api_key: "kLtfHYRtnB7KkRcA3HG4l19HOoyYlp79i24HswRXeh3eCA5DpB_HsrRaNRvsBqlo"
+db_connection_uri: "sqlite:///tontine.db"
+starting_version: 518020000
+tontine_module_address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e"
+tontine_module_name: "tontine01"
+api_port: 6789
