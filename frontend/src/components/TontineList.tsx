@@ -3,7 +3,13 @@ import { useGetTontineMembership } from "../api/hooks/useGetTontineMembership";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { TontineListCard } from "./TontineListCard";
 
-export function TontineList() {
+export function TontineList({
+  activeAddress,
+  setActiveAddress,
+}: {
+  activeAddress: string | null;
+  setActiveAddress: (i: string | null) => void;
+}) {
   const { connected } = useWallet();
 
   const {
@@ -44,7 +50,15 @@ export function TontineList() {
     // card in each list based on is_creator.
     for (let i = 0; i < tontineMembershipData!.length; i++) {
       const tontine = tontineMembershipData![i];
-      const card = <TontineListCard tontine={tontine} />;
+      const address = tontine.tontine_address;
+      const card = (
+        <Box key={i} onClick={() => setActiveAddress(address)}>
+          <TontineListCard
+            tontine={tontine}
+            active={activeAddress !== null && activeAddress === address}
+          />
+        </Box>
+      );
       if (tontine.is_creator) {
         creatorCards.push(card);
       } else {

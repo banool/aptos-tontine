@@ -176,3 +176,8 @@ export function useBuildExplorerUrl(accountAddress: string): string {
     state.network_name === "mainnet" ? "" : `?network=${state.network_name}`;
   return `https://explorer.aptoslabs.com/account/${accountAddress}${networkParam}`;
 }
+
+// https://stackoverflow.com/a/67629097/3846032
+export const interleave = (array: any[], ele: any) => {
+  return array.flatMap((x) => [ele, x]).slice(1);
+};

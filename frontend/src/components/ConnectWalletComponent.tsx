@@ -1,6 +1,5 @@
-import { Button, Icon, useToast } from "@chakra-ui/react";
+import { Button, useToast } from "@chakra-ui/react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { WalletConnector } from "@aptos-labs/wallet-adapter-mui-design";
 
 export const ConnectWalletComponent = () => {
   const { connect, wallets } = useWallet();

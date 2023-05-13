@@ -11,10 +11,26 @@ export const networks = {
 export type NetworkName = keyof typeof networks;
 
 export const moduleLocations = {
-  mainnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
-  testnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
-  devnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
-  local: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
+  mainnet: {
+    address:
+      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
+    name: "tontine02",
+  },
+  testnet: {
+    address:
+      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
+    name: "tontine02",
+  },
+  devnet: {
+    address:
+      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
+    name: "tontine02",
+  },
+  local: {
+    address:
+      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
+    name: "tontine02",
+  },
 };
 
 // Remove trailing slashes

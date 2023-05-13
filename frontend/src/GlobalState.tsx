@@ -95,4 +95,4 @@ export const getModuleId = (state: GlobalState): string => {
   const address = moduleLocations[state.network_name].address;
   const name = moduleLocations[state.network_name].name;
   return `${address}::${name}`;
-}
+};
