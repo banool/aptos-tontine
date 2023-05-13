@@ -83,7 +83,7 @@ export default function NetworkSelect() {
         variant="outlined"
       >
         <option disabled value="">
-          Chain ID: Network
+          Network
         </option>
         {options}
       </Select>

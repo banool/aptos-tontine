@@ -10,6 +10,13 @@ export const networks = {
 
 export type NetworkName = keyof typeof networks;
 
+export const moduleLocations = {
+  mainnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
+  testnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
+  devnet: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
+  local: {address: "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e", name: "tontine01"},
+};
+
 // Remove trailing slashes
 for (const key of Object.keys(networks)) {
   const networkName = key as NetworkName;

@@ -2,7 +2,9 @@ import React from "react";
 import { Box, Flex, Heading, IconButton, Spacer, Text } from "@chakra-ui/react";
 import { ColorModeSwitcher } from "../components/ColorModeSwitcher";
 import NetworkSelect from "../components/NetworkSelect";
-import { useGetAptToUsd } from "../api/hooks/useGetAptToUsd";
+import { DisconnectWalletComponent } from "../components/DisconnectWalletComponent";
+import { ConnectWalletComponent } from "../components/ConnectWalletComponent";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,20 +12,14 @@ interface LayoutProps {
 
 // TODO: Figure out how to make IconButton padding for GitHub button the same
 // as the color switcher button.
-export default function MainLayout({ children }: LayoutProps) {
-  const { isLoading, aptToUsd, error } = useGetAptToUsd();
+export default function WalletLayout({ children }: LayoutProps) {
+  const { connected } = useWallet();
 
   let headerMiddle = null;
-  if (isLoading) {
-    headerMiddle = <Text>Loading APT price...</Text>;
-  }
-  if (aptToUsd) {
-    headerMiddle = <Text>{`1 APT = ${aptToUsd.toFixed(2)} USD`}</Text>;
-  }
-  if (!isLoading && aptToUsd === undefined) {
-    headerMiddle = <Text>Error loading APT price, see console logs</Text>;
-    console.log("Error loading APT price:");
-    console.log(error);
+  if (connected) {
+    headerMiddle = <DisconnectWalletComponent />;
+  } else {
+    headerMiddle = <ConnectWalletComponent />;
   }
 
   return (

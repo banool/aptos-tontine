@@ -1,5 +1,4 @@
 import { Types } from "aptos";
-import fractionUnicode from "fraction-unicode";
 import { useGlobalState } from "./GlobalState";
 
 /**
@@ -13,10 +12,10 @@ export function assertNever(x: never): never {
 }
 
 /*
-If the transaction doesn't have a version property,
-that means it's a pending transaction (and thus it's expected version will be higher than any existing versions).
-We can consider the version to be Infinity for this case.
-*/
+ * If the transaction doesn't have a version property,
+ * that means it's a pending transaction (and thus it's expected version will be higher than any existing versions).
+ * We can consider the version to be Infinity for this case.
+ */
 export function sortTransactions(
   a: Types.Transaction,
   b: Types.Transaction,
@@ -27,10 +26,10 @@ export function sortTransactions(
 }
 
 /*
-Converts a utf8 string encoded as hex back to string
-if hex starts with 0x - ignore this part and start from the 3rd char (at index 2).
-*/
-export function hex_to_string(hex: string): string {
+ * Converts a utf8 string encoded as hex back to string
+ * if hex starts with 0x - ignore this part and start from the 3rd char (at index 2).
+ */
+export function hexToString(hex: string): string {
   const hexString = hex.toString();
   let str = "";
   let n = hex.startsWith("0x") ? 2 : 0;
@@ -151,28 +150,6 @@ function range(size: number, startAt: number = 0): ReadonlyArray<number> {
 // Meaning, the denominator can go as high as 64, starting from 1.
 const acceptableDenominators = range(63, 1);
 const maxDistanceToNumerator = 0.001;
-
-export function numberToFractionString(n: number): string {
-  const negative = n < 0;
-  if (negative) n = -n;
-
-  const wholePart = Math.floor(n);
-  n -= wholePart;
-
-  const denom = acceptableDenominators.find(
-    (d) => Math.abs(d * n - Math.round(d * n)) <= maxDistanceToNumerator,
-  );
-  if (denom === undefined) {
-    return `${n}`;
-  }
-  const numer = Math.round(denom * n);
-
-  if (denom === 1) {
-    return "" + (wholePart + numer) * (negative ? -1 : 1);
-  }
-
-  return fractionUnicode(numer, denom);
-}
 
 export function getShortAddress(addr: string): string {
   return addr.slice(0, 6) + "..." + addr.slice(-4);

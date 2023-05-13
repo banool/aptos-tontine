@@ -6,6 +6,7 @@ import {
   features,
   defaultFeatureName,
   FeatureName,
+  moduleLocations,
 } from "./constants";
 
 const selected_network = safeGetSelectedNetworkName();
@@ -89,3 +90,9 @@ export const useGlobalState = (): [
   React.useContext(GlobalStateContext),
   React.useContext(DispatchStateContext),
 ];
+
+export const getModuleId = (state: GlobalState): string => {
+  const address = moduleLocations[state.network_name].address;
+  const name = moduleLocations[state.network_name].name;
+  return `${address}::${name}`;
+}

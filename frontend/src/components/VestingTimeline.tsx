@@ -1,5 +1,5 @@
 import { useGetAptToUsd } from "../api/hooks/useGetAptToUsd";
-import { formatUsdAmount, numberToFractionString } from "../utils";
+import { formatUsdAmount } from "../utils";
 import { Timeline } from "./Timeline";
 
 export type VestingTimelineItem = {
@@ -66,7 +66,7 @@ export const VestingTimeline = ({
     const amountApt = stakerGrantAmountApt
       ? (Number(stakerGrantAmountApt) * item.fraction).toFixed(2)
       : null;
-    const fraction = numberToFractionString(item.fraction);
+    const fraction = "hey";
     let amountString = "";
     if (amountApt !== null) {
       amountString += `${amountApt} APT`;

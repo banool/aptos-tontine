@@ -1,38 +1,35 @@
 {
-  "name": "aptos-tontine-frontend",
-  "version": "0.1.1",
+  "name": "aptos-vesting-dashboard",
+  "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@aptos-labs/wallet-adapter-core": "^2.1.0",
+    "@aptos-labs/wallet-adapter-react": "^1.0.5",
     "@babel/plugin-syntax-bigint": "^7.8.3",
-    "@chakra-ui/react": "^2.4.3",
-    "@emotion/react": "^11.10.5",
-    "@emotion/styled": "^11.10.5",
+    "@chakra-ui/react": "^2.6.1",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
     "@testing-library/jest-dom": "^5.16.5",
-    "@testing-library/react": "^13.4.0",
+    "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
-    "@types/chroma-js": "^2.1.4",
-    "@types/jest": "^28.1.8",
-    "@types/lodash": "^4.14.191",
-    "@types/node": "^12.20.55",
-    "@types/react": "^18.0.26",
-    "@types/react-dom": "^18.0.9",
-    "aptos": "^1.4.0",
+    "@types/chroma-js": "^2.4.0",
+    "@types/jest": "^29.5.1",
+    "@types/lodash": "^4.14.194",
+    "@types/node": "^20.1.3",
+    "@types/react": "^18.2.6",
+    "@types/react-dom": "^18.2.4",
+    "aptos": "^1.8.5",
     "chroma-js": "^2.4.2",
-    "connected-react-router": "^6.9.3",
-    "fraction-unicode": "^1.0.1",
-    "history": "^5.3.0",
-    "lodash": "^4.17.21",
-    "npm": "^9.2.0",
+    "petra-plugin-wallet-adapter": "^0.1.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-equation": "^1.0.0",
-    "react-icons": "^3.11.0",
-    "react-query": "^3.39.2",
-    "react-router-dom": "^6.4.5",
+    "react-icons": "^4.8.0",
+    "react-query": "^3.39.3",
+    "react-router-dom": "^6.11.1",
     "react-scripts": "5.0.1",
-    "react-use-websocket": "^4.2.0",
-    "typescript": "^4.9.4",
-    "web-vitals": "^2.1.4"
+    "react-use-websocket": "^4.3.1",
+    "typescript": "^5.0.4",
+    "web-vitals": "^3.3.1"
   },
   "homepage": "./",
   "scripts": {
@@ -48,7 +45,8 @@
     "rules": {
       "@typescript-eslint/no-unused-vars": "off",
       "no-throw-literal": "off",
-      "no-multi-str": "off"
+      "no-multi-str": "off",
+      "no-empty-pattern": "off"
     }
   },
   "browserslist": {
@@ -64,6 +62,6 @@
     ]
   },
   "devDependencies": {
-    "prettier": "^2.8.1"
+    "prettier": "^2.8.8"
   }
 }
