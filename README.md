@@ -1,38 +1,3 @@
-todo:
-
-https://github.com/aptos-labs/aptos-core/blob/734794423974a14ff7aa8f7f0de36c2a0019bc82/developer-docs-site/docs/standards/object.md
-
-This doc says you can do this:
-```
-public entry fun modify_reserves(liquidity_pool: Object<LiquidityPool>) {
-    let liquidity_pool = &mut borrow_global_mut<LiquidityPool>(liquidity_pool);
-    liquidity_pool.reserves_a = liquidity_pool.reserves_a + 1000;
-}
-```
-
-But you can't, you have to use the address of the object, not the object itself.
-
-another thing, why isn't this possible:
-```
-    fun get_tontine(tontine_address: address): (&Tontine, address) acquires Tontine {
-        let object = object::address_to_object<Tontine>(tontine_address);
-        let owner_address = object::owner<Tontine>(object);
-        let tontine = borrow_global<Tontine>(tontine_address);
-        (tontine, owner_address)
-    }
-```
-
-```
-error: invalid return of locally borrowed state
-    ┌─ /Users/dport/github/aptos-tontine/move/sources/tontine.move:287:9
-    │
-287 │         (borrow_global<Tontine>(tontine_address), owner_address)
-    │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    │         ││
-    │         │It is still being borrowed by this reference
-    │         Invalid return. Resource variable 'Tontine' is still being borrowed.
-```
-
 # Aptos Tontine
 > Works of fiction ... often feature a variant model of the tontine in which the capital devolves upon the last surviving nominee, thereby dissolving the trust and potentially making the survivor very wealthy. It is unclear whether this model ever existed in the real world.
 
@@ -117,7 +82,7 @@ If a member is added or leaves a staging tontine, a reconfirmation is triggered.
 ### No one claims the funds
 Throughout the course of the tontine eventually one member will be the last one who checked in during the check in window. However, if that member fails to claim the funds after this point + the grace period, the tontine will transition into fallback mode, in which case anyone (not just those in the tontine) may execute the fallback policy.
 
-This initially corresponds to `OVERALL_STATUS_FUNDS_UNCLAIMED` and then `OVERALL_STATUS_FALLBACK_INVOKED`
+This initially corresponds to `OVERALL_STATUS_FUNDS_NEVER_CLAIMED` and then `OVERALL_STATUS_FALLBACK_EXECUTED`
 
 ## FAQ
 Q: Can I make the tontine with assets besides APT?
@@ -128,8 +93,3 @@ A: Not right now, but it's on the roadmap: https://github.com/banool/aptos-tonti
 
 Q: In real life / fictional tontines, it is generally a rule that attempting to "take out" a member of the tontine would get you kicked out of the tontine, so as to discourage people forcibly making themselves the last member standing. How is this enforced with the Aptos tontine?
 A: It is not. Theoretically a tontine could be created with governance attached, in which, if every other remaining member votes to do so, they could kick a member out of the tontine (except in the case where only 2 members remain remaining case). This could obviously lead to all kinds of off chain collusion / corruption however, so for now I've chosen to leave this is an unsolved problem.
-
-## Thoughts
-So one issue with this is unless I publish the module in immutable mode, it is possible for me to alter the contract and yank the funds from tontines. Resource accounts are one way to solve this, but that would still be immutable mode effectively. I wonder if objects would be a way for me to make this, where the base funcionality can't be altered but extensions can be landed later on that tontine members could all choose to opt in to? Would that affect the integrity of the tontine though? More thought on this is required, for now just do immutable mode.
-
-Todo figure out how people will know they were invited to a tontine. The classic question really, go find that post in #move. If the event type field was indexed it'd be pretty easy.
