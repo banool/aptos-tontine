@@ -9,7 +9,7 @@ TimeoutStopSec=15
 RestartSec=20
 WorkingDirectory=/home/daniel/aptos-tontine/processor
 ExecStartPre=-bash -c 'kill $(lsof -ti :6789)'
-ExecStart=/home/daniel/.local/bin/poetry run python /home/daniel/aptos-tontine/processor/main.py -c config.yaml
+ExecStart=/home/daniel/.local/bin/poetry run python /home/daniel/aptos-tontine/processor/main.py -c config/example.yaml
 Type=simple
 
 [Install]

@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from config import Config
-from create_table import TontineMembership
+from table import TontineMembership
 
 
 def run_api(config: Config):

@@ -1,57 +1,30 @@
-## Python Quickstart
-### Prerequisite
-- Python 3.7 or higher
-- `pip` version 9.0.1 or higher
+## Tontine Processor
+This is an all-in-one processor for the Tontine module. This processor results in the `tontine_membership` table, which tracks what tontines exist and who their members are. We also track whether a member is the creator of the tontine or not.
+
+Currently it does not do more than that, the table is meant only for making it possible to look up what tontines a member is a part of. The frontend will use this API and then retrieve the rest of the information via a fullnode API.
+
+This processor is written to be as simple deploy as possible:
+- Both the processor and the API are run from the same process.
+- We use sqlite as the DB.
+
+### Prerequisites
+- Python 3.11 or higher
+
 ### Tutorial
-1. Install the latest version of gRPC and tooling for Python:
-  ```
-  python -m pip install grpcio
-  python -m pip install grpcio-tools
-  ```
-2. Download the example:
-```
-# Clone the repository to get the example code:
-$ git clone https://github.com/aptos-labs/aptos-indexer-client-examples
-# Navigate to the python folder
-$ cd aptos-indexer-client-examples/python
-```
-In this example, we are creating an event parser.
-3. Create a processer.
-   - First you need to create an indexer processor that reads the stream of data.
-   - We've create an example client in `processor.py`. This client
-     - Connects to the gRPC server and reads a stream of transaction data.
-     - Calls the function `parse` to parse the transaction
-     - Validates the chain ID and transaction version.
-4. Create a parser.
-   - In `event_parser.py`, we have implemented a `parse` function which accepts a `Transaction` as a parameter.
-   - The example code shows how to implement custom filtering and parse a `Transaction` and the associated `Event`'s.
-   - The function returns t.
-5. Insert data rows into database.
-   - In the example, we use Postgres for the database and SQLAlchemy as the ORM. To run the example code, install the following:
-     ```
-     python -m pip install psycopg2
-     python -m pip install sqlalchemy
-     ```
-   - In `processor.py`, after the events are parsed, all the event objects are then added to the database.
-6. Run `python processor.py` to start indexing!
-
 ## Development
-
 ### Install all dependencies
-
 ```bash
 poetry install
 ```
 
+Run:
+```
+poetry run python main.py -c config/example.yaml
+```
+
 ### Linting & autoformatting
-
 ```bash
-poetry run poe pyright # typecheck
-poetry run poe format # autoformat via black
+poe isort
+poe black
 ```
 
-### Run locally in Docker
-
-```bash
-docker compose up --build --force-recreate
-```

@@ -1,6 +1,7 @@
 import json
-import os
 import logging
+import os
+from parser import INDEXER_NAME, parse
 
 import grpc
 from sqlalchemy import create_engine
@@ -8,8 +9,7 @@ from sqlalchemy.orm import Session
 
 from aptos.indexer.v1 import raw_data_pb2, raw_data_pb2_grpc
 from config import Config
-from create_table import NextVersionToProcess, TontineMembership
-from tontine_parser import INDEXER_NAME, parse
+from table import NextVersionToProcess, TontineMembership
 
 
 def run_processor(config: Config):
