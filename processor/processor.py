@@ -13,6 +13,8 @@ import json
 
 
 def run_processor(config: Config, engine):
+    print("Starting processor...")
+
     metadata = (
         ("x-aptos-data-authorization", config.indexer_api_key),
         ("x-aptos-request-name", INDEXER_NAME),
