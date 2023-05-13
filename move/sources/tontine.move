@@ -3,10 +3,11 @@
 
 //! See the README for more information about how this tontine module works.
 
-module addr::tontine01 {
+module addr::tontine02 {
     use std::error;
     use std::option::{Self, Option};
     use std::signer;
+    use std::string;
     use std::vector;
     use std::timestamp::now_seconds;
     use aptos_framework::aptos_coin::AptosCoin;
@@ -15,8 +16,6 @@ module addr::tontine01 {
     use aptos_std::object::{Self, Object};
     use aptos_std::simple_map::{Self, SimpleMap};
 
-    #[test_only]
-    use std::string;
     #[test_only]
     use std::timestamp;
     #[test_only]
@@ -241,6 +240,9 @@ module addr::tontine01 {
     }
 
     struct TontineConfig has store {
+        /// Vanity name for the tontine, this is only used for display purposes.
+        name: string::String,
+
         /// Who (where identity is defined by account address) is party to the tontine.
         /// If the creator does not include their own address in this, we will add it.
         members: vector<address>,
@@ -315,13 +317,14 @@ module addr::tontine01 {
     // No fallback policy for now, not yet implemented. Look into enums.
     public entry fun create(
         caller: &signer,
+        name: string::String,
         invitees: vector<address>,
         check_in_frequency_secs: u64,
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
     ) {
-        create_(caller, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy);
+        create_(caller, name, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy);
     }
 
     /// This function is separate from the top level create function so we can use it
@@ -329,6 +332,7 @@ module addr::tontine01 {
     /// anything but we need it to return the object with the tontine in it.
     fun create_(
         caller: &signer,
+        name: string::String,
         invitees: vector<address>,
         check_in_frequency_secs: u64,
         claim_window_secs: u64,
@@ -377,6 +381,7 @@ module addr::tontine01 {
         // Build the TontineConfig. We modify some of the arguments above (e.g.
         // `invitees`) so this isn't a direct mapping of the inputs.
         let tontine_config = TontineConfig {
+            name,
             members: invitees,
             per_member_amount_octa: per_member_amount_octa,
             check_in_frequency_secs: check_in_frequency_secs,
@@ -894,7 +899,7 @@ module addr::tontine01 {
 
         let check_in_frequency_secs = 60 * 60 * 24 * 30;
         let claim_window_secs = 60 * 60 * 24 * 30;
-        create_(creator, members, check_in_frequency_secs, claim_window_secs, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS)
+        create_(creator, string::utf8(b"test"), members, check_in_frequency_secs, claim_window_secs, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS)
     }
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
