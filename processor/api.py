@@ -1,4 +1,5 @@
 import logging
+import os
 
 from flask import Flask
 from flask_cors import CORS
@@ -10,6 +11,8 @@ from create_table import TontineMembership
 
 
 def run_api(config: Config):
+    logging.info(f"Running API at pid {os.getpid()}...")
+
     engine = create_engine(config.db_connection_uri)
 
     app = Flask(__name__)
@@ -33,4 +36,4 @@ def run_api(config: Config):
 
     # This is only recommend for development purposes. For production deployment,
     # you're meant to use a proper web server stack like gunicorn + nginx.
-    app.run(port=config.api_port, debug=True)
+    app.run(port=config.api_port)

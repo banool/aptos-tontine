@@ -1,4 +1,5 @@
 import json
+import os
 import logging
 
 import grpc
@@ -12,7 +13,7 @@ from tontine_parser import INDEXER_NAME, parse
 
 
 def run_processor(config: Config):
-    logging.info("Starting processor...")
+    logging.info(f"Running processor at pid {os.getpid()}...")
 
     engine = create_engine(config.db_connection_uri)
 
