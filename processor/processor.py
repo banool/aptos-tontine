@@ -1,4 +1,5 @@
 import json
+import logging
 
 import grpc
 from sqlalchemy import create_engine
@@ -11,7 +12,7 @@ from tontine_parser import INDEXER_NAME, parse
 
 
 def run_processor(config: Config):
-    print("Starting processor...")
+    logging.info("Starting processor...")
 
     engine = create_engine(config.db_connection_uri)
 
@@ -36,7 +37,7 @@ def run_processor(config: Config):
             else:
                 starting_version = 0
 
-    print(
+    logging.info(
         json.dumps(
             {
                 "message": "Connected to the indexer grpc",
@@ -62,7 +63,7 @@ def run_processor(config: Config):
                     + ", but received chain ID is: "
                     + str(chain_id)
                 )
-            print(
+            logging.info(
                 json.dumps(
                     {
                         "message": "Response received",
@@ -113,7 +114,7 @@ def run_processor(config: Config):
                     )
 
                 if (current_transaction_version % 1000) == 0:
-                    print(
+                    logging.info(
                         json.dumps(
                             {
                                 "message": "Successfully processed transaction",

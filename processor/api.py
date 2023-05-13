@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask
 from flask_cors import CORS
 from sqlalchemy import create_engine
@@ -22,7 +24,7 @@ def run_api(config: Config):
     # Get tontines an address is part of.
     @app.route("/tontines/<address>", methods=["GET"])
     def tontines(address):
-        print(f"Received request to get tontines for {address}")
+        logging.info(f"Received request to get tontines for {address}")
         with Session(engine) as session:
             objects = (
                 session.query(TontineMembership).filter_by(member_address=address).all()
@@ -31,4 +33,4 @@ def run_api(config: Config):
 
     # This is only recommend for development purposes. For production deployment,
     # you're meant to use a proper web server stack like gunicorn + nginx.
-    app.run(port=config.api_port)
+    app.run(port=config.api_port, debug=True)

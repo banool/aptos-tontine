@@ -7,12 +7,6 @@ from aptos.indexer.v1 import raw_data_pb2
 from config import Config
 from processor import run_processor
 
-LOG = logging.getLogger(__name__)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-LOG.addHandler(ch)
-
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -23,11 +17,27 @@ def parse_config():
 
 def main():
     config = parse_config()
+    logging.basicConfig(
+        level="INFO", format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
-    set_start_method("forkserver")
-    with Pool(5) as p:
-        p.map(run_api, [(config)])
-        p.map(run_processor, [(config)])
+    logging.info("Spawning processors for the processor and api...")
+
+    set_start_method("fork")
+
+    p = Pool(2)
+    p1 = p.apply_async(run_api, [(config)])
+    p2 = p.apply_async(run_processor, [(config)])
+
+    logging.info(
+        "Spawned processors for the processor and api, waiting for them "
+        "indefinitely..."
+    )
+
+    p1.get()
+    p2.get()
+
+    p.close()
 
 
 if __name__ == "__main__":
