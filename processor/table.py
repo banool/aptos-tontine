@@ -27,7 +27,9 @@ class TontineMembership(Base):
     tontine_address: Mapped[str] = mapped_column(String, primary_key=True)
     member_address: Mapped[str] = mapped_column(String, primary_key=True)
     is_creator: Mapped[bool]
-    has_contributed: Mapped[bool] = mapped_column(default=False)
+    # True if the member has ever contributed to the tontine, even if they
+    # withdrew or left later.
+    has_ever_contributed: Mapped[bool] = mapped_column(default=False)
 
 
 class NextVersionToProcess(Base):

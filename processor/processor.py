@@ -100,7 +100,9 @@ def run_processor(config: Config):
                             session.query(TontineMembership).filter_by(
                                 tontine_address=update.tontine_address,
                                 member_address=update.member_address,
-                            ).update({"has_contributed": update.has_contributed})
+                            ).update(
+                                {"has_ever_contributed": update.has_ever_contributed}
+                            )
 
                     # Delete rows if necessary.
                     if deletions:

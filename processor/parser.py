@@ -20,7 +20,7 @@ class TontineMembershipDeletion:
 class TontineMembershipUpdate:
     tontine_address: str
     member_address: str
-    has_contributed: bool
+    has_ever_contributed: bool
 
 
 # Returns:
@@ -61,7 +61,7 @@ def parse(
                     tontine_address=standardize_address(event.key.account_address),
                     member_address=standardize_address(data["creator"]),
                     is_creator=True,
-                    has_contributed=False,
+                    has_ever_contributed=False,
                 )
             )
 
@@ -71,7 +71,7 @@ def parse(
                     tontine_address=standardize_address(event.key.account_address),
                     member_address=standardize_address(data["member"]),
                     is_creator=False,
-                    has_contributed=False,
+                    has_ever_contributed=False,
                 )
             )
 
@@ -88,11 +88,9 @@ def parse(
                 TontineMembershipUpdate(
                     tontine_address=standardize_address(event.key.account_address),
                     member_address=standardize_address(data["member"]),
-                    has_contributed=True,
+                    has_ever_contributed=True,
                 )
             )
-            print("YOOOOOOOOOOOOOO")
-            print(updates)
 
     return (additions, updates, deletions)
 

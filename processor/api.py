@@ -39,7 +39,7 @@ def run_api(config: Config):
                 {
                     "tontine_address": o.tontine_address,
                     "is_creator": o.is_creator,
-                    "has_contributed": o.has_contributed,
+                    "has_ever_contributed": o.has_ever_contributed,
                 }
             )
         return out
