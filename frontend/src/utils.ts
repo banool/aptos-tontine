@@ -142,6 +142,7 @@ export const OCTA_POSITIVE_EXPONENT = 10 ** OCTA_NUMBER;
 
 export const aptToOcta = (octa: number) => octa * OCTA_POSITIVE_EXPONENT;
 export const octaToApt = (apt: bigint) => apt / BigInt(OCTA_POSITIVE_EXPONENT);
+export const octaToAptNormal = (apt: number) => apt / OCTA_POSITIVE_EXPONENT;
 
 function range(size: number, startAt: number = 0): ReadonlyArray<number> {
   return [...Array(size).keys()].map((i) => i + startAt);
@@ -193,3 +194,14 @@ export const getContributionAmount = (
   }
   return 0;
 };
+
+export function simpleMapArrayToMap(
+  arr: { key: string; value: any }[],
+): Map<string, any> {
+  const map = new Map<string, any>();
+  console.log("arr", arr);
+  arr.forEach((item) => {
+    map.set(item.key, item.value);
+  });
+  return map;
+}

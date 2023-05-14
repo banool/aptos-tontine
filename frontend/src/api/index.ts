@@ -47,20 +47,34 @@ export function getAccountResource(
   );
 }
 
-export async function getUpcomingReward(
-  vestingContractAddress: string,
-  beneficiaryAddress: string,
+export async function getMemberStatuses(
+  tontineAddress: string,
+  moduleId: string,
   nodeUrl: string,
-): Promise<number> {
+): Promise<any> {
   const client = new AptosClient(nodeUrl);
   const payload: Types.ViewRequest = {
-    function: "0x1::vesting::accumulated_rewards",
+    function: `${moduleId}::get_member_statuses`,
     type_arguments: [],
-    arguments: [vestingContractAddress, beneficiaryAddress],
+    arguments: [tontineAddress],
   };
   const response = await client.view(payload);
-  console.log(`response baby: ${response}`);
-  return parseInt(response[0] as any);
+  return response[0] as any;
+}
+
+export async function getOverallStatus(
+  tontineAddress: string,
+  moduleId: string,
+  nodeUrl: string,
+): Promise<any> {
+  const client = new AptosClient(nodeUrl);
+  const payload: Types.ViewRequest = {
+    function: `${moduleId}::get_overall_status`,
+    type_arguments: [],
+    arguments: [tontineAddress],
+  };
+  const response = await client.view(payload);
+  return response[0] as any;
 }
 
 export async function getAnsName(

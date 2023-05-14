@@ -1,4 +1,4 @@
-import { Box, Text, Spinner, Heading, Flex } from "@chakra-ui/react";
+import { Box, Text, Spinner, Heading } from "@chakra-ui/react";
 import {
   TontineMembership,
   useGetTontineMembership,
@@ -74,7 +74,7 @@ export function TontineList({
 
     if (creatorCards.length > 0 && otherCards.length > 0) {
       body = (
-        <Box>
+        <Box paddingTop={2} paddingRight={3} paddingBottom={2}>
           <Heading
             paddingTop={6}
             paddingLeft={4}

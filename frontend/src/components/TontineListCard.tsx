@@ -12,8 +12,6 @@ import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { getShortAddress, interleave } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { getAnsName } from "../api";
-import { useEffect, useState } from "react";
 import { useGetAnsNames } from "../api/hooks/useGetAnsName";
 
 export function TontineListCard({
@@ -32,8 +30,6 @@ export function TontineListCard({
     tontine.tontine_address,
     `${moduleId}::Tontine`,
   );
-
-  console.log(accountResource);
 
   const { data: names } = useGetAnsNames(
     () => (accountResource!.data as any).config.members,
@@ -68,10 +64,10 @@ export function TontineListCard({
     members = interleave(elements, <Text as="span">{", "}</Text>);
   }
 
-  const selectedColor = colorMode.colorMode == "dark" ? "#172131" : "gray.300";
+  const selectedColor = colorMode.colorMode === "dark" ? "#172131" : "gray.300";
 
   return (
-    <Box p={2}>
+    <Box p={3}>
       <Card
         bg={active ? selectedColor : undefined}
         borderWidth="1px"

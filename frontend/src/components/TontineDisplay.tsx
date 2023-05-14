@@ -1,18 +1,7 @@
-import {
-  Box,
-  Text,
-  Card,
-  CardBody,
-  CardHeader,
-  Heading,
-  Tooltip,
-} from "@chakra-ui/react";
+import { Box, Text } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
-import { getShortAddress, interleave } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { getAnsName } from "../api";
-import { useEffect, useState } from "react";
 import { TontineActions } from "./TontineActions";
 
 export function TontineDisplay({
@@ -30,9 +19,9 @@ export function TontineDisplay({
   );
 
   return (
-    <Box>
+    <Box p={3}>
       <TontineActions activeTontine={activeTontine} />
-      <Text>{JSON.stringify(accountResource)}</Text>
     </Box>
   );
+  //<Text>{JSON.stringify(accountResource)}</Text>
 }

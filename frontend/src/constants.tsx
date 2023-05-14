@@ -74,3 +74,21 @@ if (!(defaultFeatureName in features)) {
 }
 
 export const defaultFeature = features[defaultFeatureName];
+
+export const MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS: number = 128;
+export const MEMBER_STATUS_MUST_RECONFIRM: number = 129;
+export const MEMBER_STATUS_READY: number = 130;
+export const MEMBER_STATUS_STILL_ELIGIBLE: number = 131;
+export const MEMBER_STATUS_INELIGIBLE: number = 132;
+export const MEMBER_STATUS_CAN_CLAIM_FUNDS: number = 133;
+export const MEMBER_STATUS_CLAIMED_FUNDS: number = 134;
+export const MEMBER_STATUS_NEVER_CLAIMED_FUNDS: number = 135;
+
+export const OVERALL_STATUS_STAGING: number = 64;
+export const OVERALL_STATUS_CANCELLED: number = 65;
+export const OVERALL_STATUS_CAN_BE_LOCKED: number = 66;
+export const OVERALL_STATUS_LOCKED: number = 67;
+export const OVERALL_STATUS_FUNDS_CLAIMABLE: number = 68;
+export const OVERALL_STATUS_FUNDS_CLAIMED: number = 69;
+export const OVERALL_STATUS_FUNDS_NEVER_CLAIMED: number = 70;
+export const OVERALL_STATUS_FALLBACK_EXECUTED: number = 71;
