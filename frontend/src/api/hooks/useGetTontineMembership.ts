@@ -5,6 +5,7 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 export type TontineMembership = {
   tontine_address: string;
   is_creator: boolean;
+  has_ever_contributed: boolean;
 };
 
 export function useGetTontineMembership(): UseQueryResult<TontineMembership[]> {

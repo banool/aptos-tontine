@@ -3,6 +3,7 @@ import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { TontineActions } from "./TontineActions";
+import { TontineInfo } from "./TontineInfo";
 
 export function TontineDisplay({
   activeTontine,
@@ -19,9 +20,13 @@ export function TontineDisplay({
   );
 
   return (
-    <Box p={3}>
-      <TontineActions activeTontine={activeTontine} />
+    <Box>
+      <Box p={3}>
+        <TontineActions activeTontine={activeTontine} />
+      </Box>
+      <Box p={3}>
+        <TontineInfo activeTontine={activeTontine} />
+      </Box>
     </Box>
   );
-  //<Text>{JSON.stringify(accountResource)}</Text>
 }

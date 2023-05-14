@@ -195,11 +195,11 @@ export const getContributionAmount = (
   return 0;
 };
 
+// This is the kinda thing we could have in a RemoteAbiReader btw.
 export function simpleMapArrayToMap(
   arr: { key: string; value: any }[],
 ): Map<string, any> {
   const map = new Map<string, any>();
-  console.log("arr", arr);
   arr.forEach((item) => {
     map.set(item.key, item.value);
   });

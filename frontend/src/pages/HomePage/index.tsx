@@ -14,16 +14,12 @@ export const HomePage = () => {
     null,
   );
 
-  // TODO: This never gets triggered.
+  // https://aptos-org.slack.com/archives/C03JJF9DJ4V/p1684069302599929
   useEffect(() => {
-    console.log("blahhhhhhhh");
     if (!connected) {
       setActiveTontine(null);
     }
   }, [connected]);
-
-  console.log("connected: ", connected);
-  console.log("activeTontine: ", activeTontine);
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -54,7 +50,7 @@ export const HomePage = () => {
         />
       </Box>
       <Box flex="75">
-        {activeTontine ? (
+        {connected && activeTontine ? (
           <TontineDisplay activeTontine={activeTontine} />
         ) : (
           <Box

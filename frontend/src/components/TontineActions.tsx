@@ -237,7 +237,7 @@ export function TontineActions({
 
   var lockDisabled = baseDisabled;
   var lockTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs > 0) {
+  if (overallStatus === OVERALL_STATUS_STAGING) {
     lockDisabled = true;
     lockTooltip = "Tontine is already locked.";
   } else if (overallStatus === OVERALL_STATUS_CANCELLED) {
@@ -251,7 +251,7 @@ export function TontineActions({
 
   var checkInDisabled = baseDisabled;
   var checkInTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs === 0) {
+  if (overallStatus === OVERALL_STATUS_STAGING) {
     checkInDisabled = true;
     checkInTooltip = "Tontine is not active yet, you must lock it.";
   } else if (memberStatus !== MEMBER_STATUS_STILL_ELIGIBLE) {
@@ -261,7 +261,7 @@ export function TontineActions({
 
   var claimDisabled = baseDisabled;
   var claimTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs === 0) {
+  if (overallStatus === OVERALL_STATUS_STAGING) {
     claimDisabled = true;
     claimTooltip = "Tontine is not active yet.";
   } else if (memberStatus !== MEMBER_STATUS_CAN_CLAIM_FUNDS) {
@@ -271,15 +271,15 @@ export function TontineActions({
 
   var executeFallbackDisabled = baseDisabled;
   var executeFallbackTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs === 0) {
+  if (overallStatus === OVERALL_STATUS_STAGING) {
     executeFallbackDisabled = true;
     executeFallbackTooltip = "Tontine is not active yet.";
   } else if (overallStatus === OVERALL_STATUS_LOCKED) {
-    claimDisabled = true;
-    claimTooltip = "Tontine is still active";
+    executeFallbackDisabled = true;
+    executeFallbackTooltip = "Tontine is still active";
   } else if (overallStatus === OVERALL_STATUS_FUNDS_CLAIMABLE) {
-    claimDisabled = true;
-    claimTooltip = "Funds can still be claimed";
+    executeFallbackDisabled = true;
+    executeFallbackTooltip = "Funds can still be claimed";
   }
 
   if (

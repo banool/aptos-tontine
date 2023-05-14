@@ -1,4 +1,4 @@
-import { Box, Text, Spinner, Heading } from "@chakra-ui/react";
+import { Box, Text, Spinner, Heading, Tooltip } from "@chakra-ui/react";
 import {
   TontineMembership,
   useGetTontineMembership,
@@ -48,7 +48,8 @@ export function TontineList({
     body = <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>;
   } else {
     var creatorCards = [];
-    var otherCards = [];
+    var joinedCards = [];
+    var invitedCards = [];
     // Loop through tontineMembershipData and create cards for each tontine. Put each
     // card in each list based on is_creator.
     for (let i = 0; i < tontineMembershipData!.length; i++) {
@@ -67,39 +68,55 @@ export function TontineList({
       );
       if (tontine.is_creator) {
         creatorCards.push(card);
+      } else if (tontine.has_ever_contributed) {
+        joinedCards.push(card);
       } else {
-        otherCards.push(card);
+        invitedCards.push(card);
       }
     }
 
-    if (creatorCards.length > 0 && otherCards.length > 0) {
-      body = (
-        <Box paddingTop={2} paddingRight={3} paddingBottom={2}>
-          <Heading
-            paddingTop={6}
-            paddingLeft={4}
-            paddingRight={4}
-            paddingBottom={3}
-            size="md"
-          >
-            Your tontines
-          </Heading>
-          <Box>{creatorCards}</Box>
-          <Heading
-            paddingTop={6}
-            paddingLeft={4}
-            paddingRight={4}
-            paddingBottom={3}
-            size="md"
-          >
-            Tontines you've joined
-          </Heading>
-          <Box>{otherCards}</Box>
-        </Box>
-      );
-    } else {
-      body = <Box>{creatorCards.concat(otherCards)}</Box>;
-    }
+    body = (
+      <Box paddingTop={2} paddingRight={3} paddingBottom={2}>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="md"
+        >
+          Your tontines
+        </Heading>
+        <Box>{creatorCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="md"
+        >
+          Tontines you've joined{" "}
+          <sup>
+            <Tooltip label="Tontines you have ever contributed to.">ⓘ</Tooltip>
+          </sup>
+        </Heading>
+        <Box>{joinedCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="md"
+        >
+          Tontine invitations{" "}
+          <sup>
+            <Tooltip label="Tontines other people have added you to but you've never contributed to yet.">
+              ⓘ
+            </Tooltip>
+          </sup>
+        </Heading>
+        <Box>{invitedCards}</Box>
+      </Box>
+    );
   }
 
   return body;
