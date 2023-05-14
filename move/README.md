@@ -64,6 +64,9 @@ If the pool was in a resource account, if the user wanted they could send additi
 Create tontine:
 ```
 aptos move run --assume-yes --function-id 0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e::tontine02::create --args string:"Test name 01" 'vector<address>:0x6286dfd5e2778ec069d5906cd774efdba93ab2bec71550fa69363482fbd814e7' u64:2592000 u64:2592000 u64:10000000 u8:1
-
 ```
 
+Contribute:
+```
+aptos move run --assume-yes --function-id 0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e::tontine02::contribute --args address:0xfb27827aee56a8d26c04909deb8d5d3fe61bafcab697c7c585979131bd7b7723 --args u64:100000
+```

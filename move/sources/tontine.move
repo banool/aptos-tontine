@@ -656,6 +656,7 @@ module addr::tontine02 {
         }
     }
 
+    #[view]
     /// Get the statuses of the members of the tontine.
     fun get_member_statuses(tontine: Object<Tontine>): SimpleMap<address, u8> acquires Tontine {
         let statuses: SimpleMap<address, u8> = simple_map::create();
