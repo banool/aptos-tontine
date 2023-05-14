@@ -83,7 +83,7 @@ def run_processor(config: Config):
                         + str(transaction_version)
                     )
 
-                additions, deletions = parse(
+                additions, updates, deletions = parse(
                     transaction,
                     config.tontine_module_address,
                     config.tontine_module_name,
@@ -93,6 +93,14 @@ def run_processor(config: Config):
                     # Add new rows.
                     if additions:
                         session.add_all(additions)
+
+                    # Make updates to rows.
+                    if updates:
+                        for update in updates:
+                            session.query(TontineMembership).filter_by(
+                                tontine_address=update.tontine_address,
+                                member_address=update.member_address,
+                            ).update({"has_contributed": update.has_contributed})
 
                     # Delete rows if necessary.
                     if deletions:

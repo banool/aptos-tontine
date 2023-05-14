@@ -16,6 +16,13 @@ class TontineMembershipDeletion:
     member_address: str
 
 
+@dataclass()
+class TontineMembershipUpdate:
+    tontine_address: str
+    member_address: str
+    has_contributed: bool
+
+
 # Returns:
 # - List of TontineMembership objects to add
 # - List of TontineMembershipDeletions
@@ -24,15 +31,18 @@ def parse(
     tontine_module_address: str,
     tontine_module_name: str,
 ) -> typing.Tuple[
-    typing.List[TontineMembership], typing.List[TontineMembershipDeletion]
+    typing.List[TontineMembership],
+    typing.List[TontineMembershipUpdate],
+    typing.List[TontineMembershipDeletion],
 ]:
     additions = []
+    updates = []
     deletions = []
 
     # Custom filtering
     # Here we filter out all transactions that are not of type TRANSACTION_TYPE_USER
     if transaction.type != transaction_pb2.Transaction.TRANSACTION_TYPE_USER:
-        return ([], [])
+        return ([], [], [])
 
     # Parse Transaction struct
 
@@ -51,6 +61,7 @@ def parse(
                     tontine_address=standardize_address(event.key.account_address),
                     member_address=standardize_address(data["creator"]),
                     is_creator=True,
+                    has_contributed=False,
                 )
             )
 
@@ -60,6 +71,7 @@ def parse(
                     tontine_address=standardize_address(event.key.account_address),
                     member_address=standardize_address(data["member"]),
                     is_creator=False,
+                    has_contributed=False,
                 )
             )
 
@@ -71,7 +83,18 @@ def parse(
                 )
             )
 
-    return (additions, deletions)
+        if event.type.struct.name == "MemberContributedEvent":
+            updates.append(
+                TontineMembershipUpdate(
+                    tontine_address=standardize_address(event.key.account_address),
+                    member_address=standardize_address(data["member"]),
+                    has_contributed=True,
+                )
+            )
+            print("YOOOOOOOOOOOOOO")
+            print(updates)
+
+    return (additions, updates, deletions)
 
 
 def parse_timestamp(timestamp: timestamp_pb2.Timestamp):
