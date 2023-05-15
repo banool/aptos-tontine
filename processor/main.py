@@ -3,7 +3,6 @@ import logging
 from multiprocessing import Pool, set_start_method
 
 from api import run_api
-from aptos.indexer.v1 import raw_data_pb2
 from config import Config
 from processor import run_processor
 

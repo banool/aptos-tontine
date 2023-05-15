@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from parser import INDEXER_NAME, parse
 
 import grpc
 from sqlalchemy import create_engine
@@ -9,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from aptos.indexer.v1 import raw_data_pb2, raw_data_pb2_grpc
 from config import Config
-from table import NextVersionToProcess, TontineMembership
+from my_parser import INDEXER_NAME, parse
+from tables import NextVersionToProcess, TontineMembership, TontineState
 
 
 def run_processor(config: Config):
@@ -83,20 +83,31 @@ def run_processor(config: Config):
                         + str(transaction_version)
                     )
 
-                additions, updates, deletions = parse(
+                (
+                    membership_additions,
+                    membership_updates,
+                    membership_deletions,
+                    state_additions,
+                    state_updates,
+                    state_deletions,
+                ) = parse(
                     transaction,
                     config.tontine_module_address,
                     config.tontine_module_name,
                 )
 
                 with Session(engine) as session, session.no_autoflush, session.begin():
-                    # Add new rows.
-                    if additions:
-                        session.add_all(additions)
+                    # Add new rows to the tontine_membership table.
+                    if membership_additions:
+                        session.add_all(membership_additions)
 
-                    # Make updates to rows.
-                    if updates:
-                        for update in updates:
+                    # Add new rows to the tontine_state table.
+                    if state_additions:
+                        session.add_all(state_additions)
+
+                    # Make updates to rows in the tontine_membership table.
+                    if membership_updates:
+                        for update in membership_updates:
                             session.query(TontineMembership).filter_by(
                                 tontine_address=update.tontine_address,
                                 member_address=update.member_address,
@@ -104,12 +115,26 @@ def run_processor(config: Config):
                                 {"has_ever_contributed": update.has_ever_contributed}
                             )
 
-                    # Delete rows.
-                    if deletions:
-                        for deletion in deletions:
+                    # Make updates to rows in the tontine_state table.
+                    if state_updates:
+                        for update in state_updates:
+                            session.query(TontineState).filter_by(
+                                tontine_address=update.tontine_address,
+                            ).update({"state": update.state})
+
+                    # Delete rows from the tontine_membership table.
+                    if membership_deletions:
+                        for deletion in membership_deletions:
                             session.query(TontineMembership).filter_by(
                                 tontine_address=deletion.tontine_address,
                                 member_address=deletion.member_address,
+                            ).delete()
+
+                    # Delete rows from the tontine_state table.
+                    if state_deletions:
+                        for address in state_deletions:
+                            session.query(TontineState).filter_by(
+                                tontine_address=address,
                             ).delete()
 
                     # Update latest processed version.

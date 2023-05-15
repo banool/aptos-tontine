@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from config import Config
-from table import TontineMembership
+from tables import TontineMembership, TontineState, TontineStateEnum
 
 
 def run_api(config: Config):
@@ -30,16 +30,26 @@ def run_api(config: Config):
     def tontines(address):
         logging.info(f"Received request to get tontines for {address}")
         with Session(engine) as session:
-            objects: typing.List[TontineMembership] = (
+            memberships: typing.List[TontineMembership] = (
                 session.query(TontineMembership).filter_by(member_address=address).all()
             )
+            tontine_addresses = {m.tontine_address for m in memberships}
+            states: typing.List[TontineState] = (
+                session.query(TontineState)
+                .filter(TontineState.tontine_address.in_(tontine_addresses))
+                .all()
+            )
+
+        tontine_address_to_state = {s.tontine_address: s.state for s in states}
+
         out = []
-        for o in objects:
+        for membership in memberships:
             out.append(
                 {
-                    "tontine_address": o.tontine_address,
-                    "is_creator": o.is_creator,
-                    "has_ever_contributed": o.has_ever_contributed,
+                    "tontine_address": membership.tontine_address,
+                    "is_creator": membership.is_creator,
+                    "has_ever_contributed": membership.has_ever_contributed,
+                    "state": tontine_address_to_state[membership.tontine_address],
                 }
             )
         return out

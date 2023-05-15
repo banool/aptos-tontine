@@ -1,5 +1,6 @@
 import argparse
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy import BigInteger, DateTime, String, create_engine, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -30,6 +31,24 @@ class TontineMembership(Base):
     # True if the member has ever contributed to the tontine, even if they
     # withdrew or left later.
     has_ever_contributed: Mapped[bool] = mapped_column(default=False)
+
+
+# You'll notice there is no enum variant to represent the finished state. To represent
+# this we instead delete the row.
+class TontineStateEnum(Enum):
+    STAGING = 0
+    LOCKED = 1
+
+
+# This table tracks basic tontine state. Since the purpose of the API in front of
+# tables is to provide a way to look up tontine membership and display it in
+# appropriate categories, this is a simplification of the states that a tontine
+# can be in.
+class TontineState(Base):
+    __tablename__ = "tontine_state"
+
+    tontine_address: Mapped[str] = mapped_column(String, primary_key=True)
+    state: Mapped[int]
 
 
 class NextVersionToProcess(Base):

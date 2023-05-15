@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from aptos.transaction.testing1.v1 import transaction_pb2
 from aptos.util.timestamp import timestamp_pb2
-from table import TontineMembership
+from tables import TontineMembership, TontineState, TontineStateEnum
 
 # INDEXER_NAME is used to track the latest processed version
 INDEXER_NAME = "python_example_indexer"
@@ -23,9 +23,14 @@ class TontineMembershipUpdate:
     has_ever_contributed: bool
 
 
-# Returns:
-# - List of TontineMembership objects to add
-# - List of TontineMembershipDeletions
+@dataclass
+class TontineStateUpdate:
+    tontine_address: str
+    state: int
+
+
+# This function parses transactions and outputs create, update, and delete operations
+# for both the TontineMembership and TontineState tables.
 def parse(
     transaction: transaction_pb2.Transaction,
     tontine_module_address: str,
@@ -34,17 +39,22 @@ def parse(
     typing.List[TontineMembership],
     typing.List[TontineMembershipUpdate],
     typing.List[TontineMembershipDeletion],
+    typing.List[TontineState],
+    typing.List[TontineStateUpdate],
+    typing.List[str],
 ]:
-    additions = []
-    updates = []
-    deletions = []
+    membership_additions = []
+    membership_updates = []
+    membership_deletions = []
+
+    state_additions = []
+    state_updates = []
+    state_deletions = []
 
     # Custom filtering
     # Here we filter out all transactions that are not of type TRANSACTION_TYPE_USER
     if transaction.type != transaction_pb2.Transaction.TRANSACTION_TYPE_USER:
-        return ([], [], [])
-
-    # Parse Transaction struct
+        return ([], [], [], [], [], [])
 
     user_transaction = transaction.user
     for event in user_transaction.events:
@@ -55,20 +65,36 @@ def parse(
 
         data = json.loads(event.data)
 
+        tontine_address = standardize_address(event.key.account_address)
+
         if event.type.struct.name == "TontineCreatedEvent":
-            additions.append(
+            membership_additions.append(
                 TontineMembership(
-                    tontine_address=standardize_address(event.key.account_address),
+                    tontine_address=tontine_address,
                     member_address=standardize_address(data["creator"]),
                     is_creator=True,
                     has_ever_contributed=False,
                 )
             )
+            state_additions.append(
+                TontineState(
+                    tontine_address=tontine_address,
+                    state=TontineStateEnum.STAGING.value,
+                )
+            )
+
+        if event.type.struct.name == "TontineLockedEvent":
+            state_updates.append(
+                TontineStateUpdate(
+                    tontine_address=tontine_address,
+                    state=TontineStateEnum.LOCKED.value,
+                )
+            )
 
         if event.type.struct.name == "MemberInvitedEvent":
-            additions.append(
+            membership_additions.append(
                 TontineMembership(
-                    tontine_address=standardize_address(event.key.account_address),
+                    tontine_address=tontine_address,
                     member_address=standardize_address(data["member"]),
                     is_creator=False,
                     has_ever_contributed=False,
@@ -76,30 +102,36 @@ def parse(
             )
 
         if event.type.struct.name == "MemberLeftEvent":
-            deletions.append(
+            membership_additions.append(
                 TontineMembershipDeletion(
-                    tontine_address=standardize_address(event.key.account_address),
+                    tontine_address=tontine_address,
                     member_address=standardize_address(data["member"]),
                 )
             )
 
         if event.type.struct.name == "MemberContributedEvent":
-            updates.append(
+            membership_additions.append(
                 TontineMembershipUpdate(
-                    tontine_address=standardize_address(event.key.account_address),
+                    tontine_address=tontine_address,
                     member_address=standardize_address(data["member"]),
                     has_ever_contributed=True,
                 )
             )
 
-    return (additions, updates, deletions)
+        if (
+            event.type.struct.name == "FundsClaimedEvent"
+            or event.type.struct.name == "FallbackExecutedEvent"
+        ):
+            state_deletions.append(tontine_address)
 
-
-def parse_timestamp(timestamp: timestamp_pb2.Timestamp):
-    datetime_obj = datetime.datetime.fromtimestamp(
-        timestamp.seconds + timestamp.nanos * 1e-9
+    return (
+        membership_additions,
+        membership_updates,
+        membership_deletions,
+        state_additions,
+        state_updates,
+        state_deletions,
     )
-    return datetime_obj.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 
 def standardize_address(address: str):
