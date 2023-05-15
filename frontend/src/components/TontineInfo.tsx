@@ -185,16 +185,16 @@ export function ContributionTable({
     const isUser = memberAddress === userAddress;
     const isCreator = memberAddress === objectData.owner;
     const memberStatus = memberStatusesData?.get(memberAddress);
-    var text;
+    var nameText;
     var label;
     if (ansLookup?.name) {
-      text = `${ansLookup.name}.apt`;
+      nameText = `${ansLookup.name}.apt`;
       label = memberAddress;
     } else {
-      text = getShortAddress(memberAddress);
+      nameText = getShortAddress(memberAddress);
       label = memberAddress;
     }
-    var memberText = text;
+    var memberText = nameText;
     if (isUser) {
       memberText += " (you)";
     }
@@ -293,22 +293,16 @@ export function ConfigTable({
 
   return (
     <Table variant="simple">
-      <Thead>
-        <Tr>
-          <Th>Key</Th>
-          <Th>Value</Th>
-        </Tr>
-      </Thead>
       <Tbody>
-        <Tr>
-          <Th>Name</Th>
-          <Td>{tontineData.config.name}</Td>
-        </Tr>
         <Tr>
           <Th>Creator</Th>
           <Td>
             <Tooltip label={label}>{text}</Tooltip>
           </Td>
+        </Tr>
+        <Tr>
+          <Th>Description</Th>
+          <Td>{tontineData.config.name}</Td>
         </Tr>
         <Tr>
           <Th>Required check in frequency</Th>

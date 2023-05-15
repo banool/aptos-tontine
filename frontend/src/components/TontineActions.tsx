@@ -115,10 +115,9 @@ export function TontineActions({
   );
   const overallStatus: number | undefined = overallStatusRaw;
 
-  const contributionAmount = getContributionAmount(
-    tontineData?.contributions,
-    account!.address,
-  );
+  const contributionAmount = tontineData
+    ? getContributionAmount(tontineData.contributions, account!.address)
+    : 0;
 
   const remainingContribution = tontineData
     ? tontineData?.config.per_member_amount_octa - contributionAmount
@@ -423,7 +422,7 @@ export function TontineActions({
 
   return (
     <Box display="flex" flexDirection="column">
-      <Box p={4}>
+      <Box p={7}>
         <Flex alignItems="center" gap="4">
           <Heading size="sm">Actions:</Heading>
           <Tooltip label={contributeTooltip}>
