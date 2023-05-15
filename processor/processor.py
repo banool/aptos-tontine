@@ -104,19 +104,15 @@ def run_processor(config: Config):
                                 {"has_ever_contributed": update.has_ever_contributed}
                             )
 
-                    # Delete rows if necessary.
+                    # Delete rows.
                     if deletions:
                         for deletion in deletions:
-                            session.delete(
-                                session.query(TontineMembership)
-                                .filter_by(
-                                    tontine_address=deletion.tontine_address,
-                                    member_address=deletion.member_address,
-                                )
-                                .first()
-                            )
+                            session.query(TontineMembership).filter_by(
+                                tontine_address=deletion.tontine_address,
+                                member_address=deletion.member_address,
+                            ).delete()
 
-                    # Update latest processed version
+                    # Update latest processed version.
                     session.merge(
                         NextVersionToProcess(
                             indexer_name=INDEXER_NAME,
