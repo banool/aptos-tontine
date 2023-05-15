@@ -1,6 +1,6 @@
 import { ChakraProvider, theme } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "react-query";
-import { HashRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { GlobalStateProvider } from "./GlobalState";
 import MyRoutes from "./MyRoutes";
 
@@ -10,9 +10,9 @@ export const App = () => (
   <ChakraProvider theme={theme}>
     <GlobalStateProvider>
       <QueryClientProvider client={queryClient}>
-        <HashRouter>
+        <BrowserRouter>
           <MyRoutes />
-        </HashRouter>
+        </BrowserRouter>
       </QueryClientProvider>
     </GlobalStateProvider>
   </ChakraProvider>

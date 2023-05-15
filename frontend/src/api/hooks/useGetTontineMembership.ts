@@ -2,10 +2,15 @@ import { UseQueryResult, useQuery } from "react-query";
 import { useGlobalState } from "../../GlobalState";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
+export const BASIC_TONTINE_STATE_STAGING = 0;
+export const BASIC_TONTINE_STATE_LOCKED = 1;
+export const BASIC_TONTINE_STATE_COMPLETE = -1;
+
 export type TontineMembership = {
   tontine_address: string;
   is_creator: boolean;
   has_ever_contributed: boolean;
+  state: number;
 };
 
 export function useGetTontineMembership(): UseQueryResult<TontineMembership[]> {

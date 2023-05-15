@@ -13,23 +13,23 @@ export type NetworkName = keyof typeof networks;
 export const moduleLocations = {
   mainnet: {
     address:
-      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
-    name: "tontine02",
+      "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
+    name: "tontine04",
   },
   testnet: {
     address:
-      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
-    name: "tontine02",
+      "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
+    name: "tontine04",
   },
   devnet: {
     address:
-      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
-    name: "tontine02",
+      "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
+    name: "tontine04",
   },
   local: {
     address:
-      "0x81e2e2499407693c81fe65c86405ca70df529438339d9da7a6fc2520142b591e",
-    name: "tontine02",
+      "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
+    name: "tontine04",
   },
 };
 

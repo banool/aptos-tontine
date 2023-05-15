@@ -24,6 +24,8 @@ export const HomePage = () => {
     null,
   );
 
+  console.log("active", activeTontine);
+
   const linkColor = useColorModeValue("blue.500", "blue.300");
 
   if (
@@ -93,14 +95,14 @@ export const HomePage = () => {
   // Note: If there are more tontines than fit in a single screen, they overflow
   // beyond the end of the sidebar box downward. I have not been able to fix it.
   return (
-    <Flex p={5} height="100%" flex="1" overflow="auto">
-      <Box flex="2" borderRight="1px">
+    <Flex p={3} height="100%" flex="1" overflow="auto">
+      <Box width="21%" borderRight="1px">
         <TontineList
           activeTontine={activeTontine}
           setActiveTontine={setActiveTontine}
         />
       </Box>
-      <Box flex="8">
+      <Box width="79%">
         {connected && activeTontine ? (
           <TontineDisplay
             activeTontine={activeTontine}

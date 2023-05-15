@@ -32,50 +32,23 @@ export function TontineListCard({
     `${moduleId}::Tontine`,
   );
 
-  const { data: names } = useGetAnsNames(
-    () => (accountResource!.data as any).config.members,
-    {
-      enabled: accountResource !== undefined,
-    },
-  );
-
-  var title = "Loading...";
-  var members = null;
-  if (error) {
-    title = `Error fetching tontine: ${error}`;
-  } else if (accountResource && names) {
-    title = (accountResource.data as any).config.name;
-    var elements = [];
-    for (var { address, name } of names) {
-      var label;
-      var text;
-      if (name) {
-        label = address;
-        text = `${name}.apt`;
-      } else {
-        label = address;
-        text = getShortAddress(address);
-      }
-      elements.push(
-        <SelectableTooltip
-          textComponent={<Text as="span">{text}</Text>}
-          label={label}
-        />,
-      );
-    }
-    members = interleave(elements, <Text as="span">{", "}</Text>);
-  }
-
   const selectedColor = colorMode.colorMode === "dark" ? "#172131" : "gray.300";
 
+  var title = "Loading...";
+  if (error) {
+    title = `Error fetching tontine: ${error}`;
+  } else if (accountResource) {
+    title = (accountResource.data as any).config.description;
+  }
+
   return (
-    <Box p={3}>
+    <Box p={3} key={tontine.tontine_address}>
       <Card
         bg={active ? selectedColor : undefined}
         borderWidth="1px"
         borderColor={active ? "white" : "transparent"}
       >
-        <CardHeader>
+        <CardHeader paddingBottom={0}>
           <Heading size="md">{title}</Heading>
         </CardHeader>
         <CardBody>
@@ -86,9 +59,6 @@ export function TontineListCard({
             }
             label={tontine.tontine_address}
           />
-          <Text>{"\n"}</Text>
-          <Text as="span">{"Members: "}</Text>
-          {members}
         </CardBody>
       </Card>
     </Box>

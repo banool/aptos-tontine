@@ -7,6 +7,9 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import {
+  BASIC_TONTINE_STATE_COMPLETE,
+  BASIC_TONTINE_STATE_LOCKED,
+  BASIC_TONTINE_STATE_STAGING,
   TontineMembership,
   useGetTontineMembership,
 } from "../api/hooks/useGetTontineMembership";
@@ -37,12 +40,10 @@ export function TontineList({
 
   // This hook manages keeping the tontine and URL state in sync.
   useEffect(() => {
-    console.log("tontineMembershipData", tontineMembershipData);
     const params: any = [];
     searchParams.forEach((value, key) => {
       params.push([key, value]);
     });
-    console.log("searchParams", params);
 
     // Don't do anything until we've loaded up the list of tontines.
     if (tontineMembershipData === undefined) {
@@ -54,7 +55,6 @@ export function TontineList({
       // a tontine if possible based on the url.
       setHasSetTontineOnFirstLoad(true);
       const urlTontineAddress = searchParams.get("tontine");
-      console.log("urlTontineAddress", urlTontineAddress);
       if (urlTontineAddress === null) {
         // There is no tontine in the URL. Do nothing.
         return;
@@ -63,7 +63,6 @@ export function TontineList({
       const tontine = tontineMembershipData.find(
         (t) => t.tontine_address === urlTontineAddress,
       );
-      console.log("tontine", tontine);
       if (tontine !== undefined) {
         setActiveTontine(tontine);
       } else {
@@ -126,36 +125,56 @@ export function TontineList({
   } else if (tontineMembershipError) {
     body = <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>;
   } else {
-    var creatorCards = [];
-    var joinedCards = [];
-    var invitedCards = [];
+    var stagingCreatorCards = [];
+    var stagingJoinedCards = [];
+    var stagingInvitedCards = [];
+    var lockedCreatorCards = [];
+    var lockedJoinedCards = [];
+    var completeCreatorCards = [];
+    var completeJoinedCards = [];
+
     // Loop through tontineMembershipData and create cards for each tontine. Put each
     // card in each list based on is_creator.
     for (let i = 0; i < tontineMembershipData!.length; i++) {
       const tontine = tontineMembershipData![i];
-      const address = tontine.tontine_address;
       const card = (
         <Box key={i} onClick={() => setActiveTontine(tontine)}>
           <TontineListCard
             tontine={tontine}
             active={
               activeTontine !== null &&
-              activeTontine.tontine_address === address
+              activeTontine.tontine_address === tontine.tontine_address
             }
           />
         </Box>
       );
-      if (tontine.is_creator) {
-        creatorCards.push(card);
-      } else if (tontine.has_ever_contributed) {
-        joinedCards.push(card);
+      if (tontine.state === BASIC_TONTINE_STATE_STAGING) {
+        if (tontine.is_creator) {
+          stagingCreatorCards.push(card);
+        } else if (tontine.has_ever_contributed) {
+          stagingJoinedCards.push(card);
+        } else {
+          stagingInvitedCards.push(card);
+        }
+      } else if (tontine.state === BASIC_TONTINE_STATE_LOCKED) {
+        if (tontine.is_creator) {
+          lockedCreatorCards.push(card);
+        } else {
+          lockedJoinedCards.push(card);
+        }
+      } else if (tontine.state === BASIC_TONTINE_STATE_COMPLETE) {
+        if (tontine.is_creator) {
+          completeCreatorCards.push(card);
+        } else {
+          completeJoinedCards.push(card);
+        }
       } else {
-        invitedCards.push(card);
+        throw `Unexpected tontine state ${tontine.state}`;
       }
     }
 
     body = (
-      <Box paddingTop={2} paddingRight={3} paddingBottom={2}>
+      <Box paddingTop={2} paddingRight={2} paddingBottom={2}>
         <Heading
           paddingTop={6}
           paddingLeft={4}
@@ -163,22 +182,41 @@ export function TontineList({
           paddingBottom={3}
           size="md"
         >
-          Your tontines
-        </Heading>
-        <Box>{creatorCards}</Box>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="md"
-        >
-          Tontines you've joined{" "}
+          New Tontines{" "}
           <sup>
-            <Tooltip label="Tontines you have ever contributed to.">ⓘ</Tooltip>
+            <Tooltip label="Tontines that haven't been locked yet.">ⓘ</Tooltip>
           </sup>
         </Heading>
-        <Box>{joinedCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Yours (${stagingCreatorCards.length})`}
+        </Heading>
+        <Box>{stagingCreatorCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Joined (${stagingJoinedCards.length})`}
+        </Heading>
+        <Box>{stagingJoinedCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Invited (${stagingInvitedCards.length})`}
+        </Heading>
+        <Box>{stagingInvitedCards}</Box>
         <Heading
           paddingTop={6}
           paddingLeft={4}
@@ -186,14 +224,65 @@ export function TontineList({
           paddingBottom={3}
           size="md"
         >
-          Tontine invitations{" "}
+          Locked Tontines{" "}
           <sup>
-            <Tooltip label="Tontines other people have added you to but you've never contributed to yet.">
+            <Tooltip label="Tontines that have been locked.">ⓘ</Tooltip>
+          </sup>
+        </Heading>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Yours (${lockedCreatorCards.length})`}
+        </Heading>
+        <Box>{lockedCreatorCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Joined (${lockedJoinedCards.length})`}
+        </Heading>
+        <Box>{lockedJoinedCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="md"
+        >
+          Concluded Tontines{" "}
+          <sup>
+            <Tooltip label="Tontines for which the funds have been claimed / the fallback executed.">
               ⓘ
             </Tooltip>
           </sup>
         </Heading>
-        <Box>{invitedCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Yours (${completeCreatorCards.length})`}
+        </Heading>
+        <Box>{completeCreatorCards}</Box>
+        <Heading
+          paddingTop={6}
+          paddingLeft={4}
+          paddingRight={4}
+          paddingBottom={3}
+          size="sm"
+        >
+          {`Joined (${completeJoinedCards.length})`}
+        </Heading>
+        <Box>{completeJoinedCards}</Box>
       </Box>
     );
   }

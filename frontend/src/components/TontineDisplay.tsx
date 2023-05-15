@@ -18,11 +18,13 @@ export function TontineDisplay({
         <Flex alignItems={"center"}>
           <TontineActions activeTontine={activeTontine} />
           <Spacer />
-          <CloseButton
-            size="md"
-            bg="red.500"
-            onClick={() => setActiveTontine(null)}
-          />
+          <Box paddingRight={5}>
+            <CloseButton
+              size="md"
+              bg="red.500"
+              onClick={() => setActiveTontine(null)}
+            />
+          </Box>
         </Flex>
       </Box>
       <Box p={3}>

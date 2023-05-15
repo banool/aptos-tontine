@@ -153,7 +153,7 @@ const acceptableDenominators = range(63, 1);
 const maxDistanceToNumerator = 0.001;
 
 export function getShortAddress(addr: string): string {
-  return addr.slice(0, 6) + "..." + addr.slice(-4);
+  return addr.slice(0, 5) + "..." + addr.slice(-3);
 }
 
 export function formatAptAmount(aptAmount: number | bigint): string {

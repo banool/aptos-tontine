@@ -31,7 +31,9 @@ import { useGetMemberStatuses } from "../api/hooks/useGetMemberStatuses";
 import { useGetOverallStatus } from "../api/hooks/useGetOverallStatus";
 import {
   MEMBER_STATUS_CAN_CLAIM_FUNDS,
+  MEMBER_STATUS_CLAIMED_FUNDS,
   MEMBER_STATUS_INELIGIBLE,
+  MEMBER_STATUS_READY,
   MEMBER_STATUS_STILL_ELIGIBLE,
 } from "../constants";
 import { SelectableTooltip } from "./SelectableTooltip";
@@ -68,13 +70,17 @@ export function TontineInfo({
     isLoading: memberStatusesIsLoading,
     data: memberStatusesRaw,
     error: memberStatusesError,
-  } = useGetMemberStatuses(activeTontine.tontine_address);
+  } = useGetMemberStatuses(activeTontine.tontine_address, {
+    additionalQueryCriteria: tontineResource,
+  });
 
   const {
     isLoading: overallStatusIsLoading,
     data: overallStatusRaw,
     error: overallStatusError,
-  } = useGetOverallStatus(activeTontine.tontine_address);
+  } = useGetOverallStatus(activeTontine.tontine_address, {
+    additionalQueryCriteria: tontineResource,
+  });
   const overallStatus: number | undefined = overallStatusRaw;
 
   const memberStatusesData = memberStatusesRaw?.data
@@ -161,11 +167,33 @@ export function ContributionTable({
   isLocked: boolean;
   userAddress: string;
 }) {
-  var finalRowHeader = isLocked ? (
-    <Text>Last check in</Text>
+  const members = tontineData.config.members;
+  const { data: names } = useGetAnsNames(() => members);
+  const contributions: Map<string, any> = simpleMapArrayToMap(
+    tontineData.contributions.data,
+  );
+  const lastCheckIns: Map<string, any> = simpleMapArrayToMap(
+    tontineData.last_check_in_times_secs.data,
+  );
+  const reconfirmationRequiredAddresses: string[] =
+    tontineData.reconfirmation_required;
+  const createdAt: number = parseInt(tontineData.creation_time_secs);
+  const checkInFrequencySecs: number = parseInt(
+    tontineData.config.check_in_frequency_secs,
+  );
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  var thirdColumnHeader = isLocked ? (
+    <Text>
+      {"Last check in "}
+      <sup>
+        <Tooltip label={`Using timezone ${tz}`}>ⓘ</Tooltip>
+      </sup>
+    </Text>
   ) : (
     <Text>
-      Reconfirmation required
+      {"Reconfirmation required "}
       <sup>
         <Tooltip label="If the tontine creator invites / removes a member or changes the config in some way, all members must reconfirm their intent to be in the tontine.">
           ⓘ
@@ -173,32 +201,30 @@ export function ContributionTable({
       </sup>
     </Text>
   );
-
-  console.log("object data", objectData);
-
-  const members = tontineData.config.members;
-
-  const { data: names } = useGetAnsNames(() => members);
-
-  const contributions: Map<string, any> = simpleMapArrayToMap(
-    tontineData.contributions.data,
+  var fourthColumnHeader = isLocked ? (
+    <Text>
+      {"Must check in by "}
+      <sup>
+        <Tooltip label={`Using timezone ${tz}`}>ⓘ</Tooltip>
+      </sup>
+    </Text>
+  ) : (
+    <Text>Ready</Text>
   );
-  const lastCheckIns: Map<string, any> = simpleMapArrayToMap(
-    tontineData.last_check_in_times_secs.data,
-  );
-  const reconfirmationRequiredAddresses = tontineData.reconfirmation_required;
+  var fifthColumnHeader = isLocked ? <Text>Still eligible</Text> : null;
 
   var rows = [];
   for (var i = 0; i < members.length; i++) {
     const memberAddress = members[i];
     const ansLookup = names?.find((lookup) => lookup.address === memberAddress);
-    const contribution = contributions.get(memberAddress)?.value ?? 0;
-    const lastCheckIn = lastCheckIns.get(memberAddress)?.value;
+    const lastCheckInRaw = lastCheckIns.get(memberAddress);
+    const lastCheckIn = lastCheckInRaw ? parseInt(lastCheckInRaw) : undefined;
     const isUser = memberAddress === userAddress;
-    const isCreator = memberAddress === objectData.owner;
     const memberStatus = memberStatusesData?.get(memberAddress);
     var nameText;
     var label;
+
+    // First column.
     if (ansLookup?.name) {
       nameText = `${ansLookup.name}.apt`;
       label = memberAddress;
@@ -210,37 +236,68 @@ export function ContributionTable({
     if (isUser) {
       memberText += " (you)";
     }
+    /*
     if (isCreator) {
       memberText += " (creator)";
     }
+    */
+
+    // Second column.
+    const contribution = contributions.get(memberAddress)?.value ?? 0;
+
+    // Third column.
     const lastCheckInText =
       lastCheckIn === undefined
         ? "Never"
         : new Date(lastCheckIn * 1000).toLocaleString();
     const reconfirmationRequired =
-        reconfirmationRequiredAddresses.includes(memberAddress),
-      isFinalRow = i === members.length - 1;
+      reconfirmationRequiredAddresses.includes(memberAddress);
     const reconfirmationRequiredText = reconfirmationRequired ? "Yes" : "No";
-    var finalRowText;
+    var thirdColumnText;
     if (isLocked) {
-      finalRowText = lastCheckInText;
+      thirdColumnText = lastCheckInText;
     } else {
-      finalRowText = reconfirmationRequiredText;
+      thirdColumnText = reconfirmationRequiredText;
+    }
+    const thirdColumnComponent = <Text>{thirdColumnText}</Text>;
+
+    // Fourth column.
+    var fourthColumnComponent;
+    if (!isLocked) {
+      var isReadyText;
+      if (memberStatus === undefined) {
+        isReadyText = "Loading...";
+      } else if (memberStatus === MEMBER_STATUS_READY) {
+        isReadyText = "Yes";
+      } else {
+        isReadyText = "No";
+      }
+      fourthColumnComponent = <Text>{isReadyText}</Text>;
+    } else {
+      const nextCheckIn = (lastCheckIn ?? createdAt) + checkInFrequencySecs;
+      console.log("nextCheckIn", nextCheckIn);
+      const nextCheckInText = new Date(nextCheckIn * 1000).toLocaleString();
+      fourthColumnComponent = <Text>{nextCheckInText}</Text>;
     }
 
-    var additionalRow = null;
+    // Fifth column.
+    var fifthColumnComponent = null;
     if (isLocked) {
       var text;
-      if (memberStatus === MEMBER_STATUS_STILL_ELIGIBLE) {
+      if (memberStatus === undefined) {
+        text = "Loading...";
+      } else if (memberStatus === MEMBER_STATUS_STILL_ELIGIBLE) {
         text = "Yes";
       } else if (memberStatus === MEMBER_STATUS_INELIGIBLE) {
         text = "No";
       } else if (memberStatus === MEMBER_STATUS_CAN_CLAIM_FUNDS) {
         text = "Can claim";
+      } else if (memberStatus === MEMBER_STATUS_CLAIMED_FUNDS) {
+        text = "Claimed funds";
       } else {
         text = "Failed to claim";
       }
-      additionalRow = <Td>{text}</Td>;
+      fifthColumnComponent = <Text>{text}</Text>;
     }
 
     const row = (
@@ -251,15 +308,14 @@ export function ContributionTable({
             textComponent={<Text>{memberText}</Text>}
           />
         </Td>
-        <Td isNumeric>{octaToAptNormal(contribution)}</Td>
-        <Td>{finalRowText}</Td>
-        {additionalRow}
+        <Td isNumeric>{`${octaToAptNormal(contribution)} APT`}</Td>
+        <Td>{thirdColumnComponent}</Td>
+        <Td>{fourthColumnComponent}</Td>
+        {fifthColumnComponent ? <Td>{fifthColumnComponent}</Td> : null}
       </Tr>
     );
     rows.push(row);
   }
-
-  const additionalRowHeader = isLocked ? <Th>Still elgible</Th> : null;
 
   return (
     <TableContainer>
@@ -267,9 +323,10 @@ export function ContributionTable({
         <Thead>
           <Tr>
             <Th>Member</Th>
-            <Th isNumeric>Contribution (APT)</Th>
-            <Th>{finalRowHeader}</Th>
-            {additionalRowHeader}
+            <Th isNumeric>Contribution</Th>
+            <Th>{thirdColumnHeader}</Th>
+            <Th>{fourthColumnHeader}</Th>
+            {fifthColumnHeader ? <Th>{fifthColumnHeader}</Th> : null}
           </Tr>
         </Thead>
         <Tbody>{rows}</Tbody>
@@ -320,7 +377,7 @@ export function ConfigTable({
         </Tr>
         <Tr>
           <Th>Description</Th>
-          <Td>{tontineData.config.name}</Td>
+          <Td>{tontineData.config.description}</Td>
         </Tr>
         <Tr>
           <Th>Required check in frequency</Th>
