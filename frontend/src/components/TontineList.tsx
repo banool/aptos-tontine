@@ -187,35 +187,41 @@ export function TontineList({
             <Tooltip label="Tontines that haven't been locked yet.">ⓘ</Tooltip>
           </sup>
         </Heading>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Yours (${stagingCreatorCards.length})`}
-        </Heading>
+        {stagingCreatorCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Yours (${stagingCreatorCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{stagingCreatorCards}</Box>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Joined (${stagingJoinedCards.length})`}
-        </Heading>
+        {stagingJoinedCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Joined (${stagingJoinedCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{stagingJoinedCards}</Box>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Invited (${stagingInvitedCards.length})`}
-        </Heading>
+        {stagingInvitedCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Invited (${stagingInvitedCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{stagingInvitedCards}</Box>
         <Heading
           paddingTop={6}
@@ -229,25 +235,29 @@ export function TontineList({
             <Tooltip label="Tontines that have been locked.">ⓘ</Tooltip>
           </sup>
         </Heading>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Yours (${lockedCreatorCards.length})`}
-        </Heading>
+        {lockedCreatorCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Yours (${lockedCreatorCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{lockedCreatorCards}</Box>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Joined (${lockedJoinedCards.length})`}
-        </Heading>
+        {lockedJoinedCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Joined (${lockedJoinedCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{lockedJoinedCards}</Box>
         <Heading
           paddingTop={6}
@@ -263,25 +273,29 @@ export function TontineList({
             </Tooltip>
           </sup>
         </Heading>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Yours (${completeCreatorCards.length})`}
-        </Heading>
+        {completeCreatorCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Yours (${completeCreatorCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{completeCreatorCards}</Box>
-        <Heading
-          paddingTop={6}
-          paddingLeft={4}
-          paddingRight={4}
-          paddingBottom={3}
-          size="sm"
-        >
-          {`Joined (${completeJoinedCards.length})`}
-        </Heading>
+        {completeJoinedCards.length > 0 ? (
+          <Heading
+            paddingTop={6}
+            paddingLeft={4}
+            paddingRight={4}
+            paddingBottom={3}
+            size="sm"
+          >
+            {`Joined (${completeJoinedCards.length})`}
+          </Heading>
+        ) : null}
         <Box>{completeJoinedCards}</Box>
       </Box>
     );
