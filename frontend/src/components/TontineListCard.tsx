@@ -13,6 +13,7 @@ import { getShortAddress, interleave } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { useGetAnsNames } from "../api/hooks/useGetAnsName";
+import { SelectableTooltip } from "./SelectableTooltip";
 
 export function TontineListCard({
   tontine,
@@ -56,9 +57,10 @@ export function TontineListCard({
         text = getShortAddress(address);
       }
       elements.push(
-        <Tooltip label={label}>
-          <Text as="span">{text}</Text>
-        </Tooltip>,
+        <SelectableTooltip
+          textComponent={<Text as="span">{text}</Text>}
+          label={label}
+        />,
       );
     }
     members = interleave(elements, <Text as="span">{", "}</Text>);
@@ -78,9 +80,12 @@ export function TontineListCard({
         </CardHeader>
         <CardBody>
           <Text as="span">{"Address: "}</Text>
-          <Tooltip label={tontine.tontine_address}>
-            <Text as="span">{getShortAddress(tontine.tontine_address)}</Text>
-          </Tooltip>
+          <SelectableTooltip
+            textComponent={
+              <Text as="span">{getShortAddress(tontine.tontine_address)}</Text>
+            }
+            label={tontine.tontine_address}
+          />
           <Text>{"\n"}</Text>
           <Text as="span">{"Members: "}</Text>
           {members}

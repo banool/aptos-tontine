@@ -34,6 +34,7 @@ import {
   MEMBER_STATUS_INELIGIBLE,
   MEMBER_STATUS_STILL_ELIGIBLE,
 } from "../constants";
+import { SelectableTooltip } from "./SelectableTooltip";
 
 export function TontineInfo({
   activeTontine,
@@ -160,7 +161,18 @@ export function ContributionTable({
   isLocked: boolean;
   userAddress: string;
 }) {
-  var finalRow = isLocked ? "Last check in" : "Reconfirmation required";
+  var finalRowHeader = isLocked ? (
+    <Text>Last check in</Text>
+  ) : (
+    <Text>
+      Reconfirmation required
+      <sup>
+        <Tooltip label="If the tontine creator invites / removes a member or changes the config in some way, all members must reconfirm their intent to be in the tontine.">
+          ⓘ
+        </Tooltip>
+      </sup>
+    </Text>
+  );
 
   console.log("object data", objectData);
 
@@ -234,7 +246,10 @@ export function ContributionTable({
     const row = (
       <Tr key={memberAddress}>
         <Td>
-          <Tooltip label={label}>{memberText}</Tooltip>
+          <SelectableTooltip
+            label={label}
+            textComponent={<Text>{memberText}</Text>}
+          />
         </Td>
         <Td isNumeric>{octaToAptNormal(contribution)}</Td>
         <Td>{finalRowText}</Td>
@@ -253,7 +268,7 @@ export function ContributionTable({
           <Tr>
             <Th>Member</Th>
             <Th isNumeric>Contribution (APT)</Th>
-            <Th>{finalRow}</Th>
+            <Th>{finalRowHeader}</Th>
             {additionalRowHeader}
           </Tr>
         </Thead>
@@ -297,7 +312,10 @@ export function ConfigTable({
         <Tr>
           <Th>Creator</Th>
           <Td>
-            <Tooltip label={label}>{text}</Tooltip>
+            <SelectableTooltip
+              textComponent={<Text>{text}</Text>}
+              label={label}
+            />
           </Td>
         </Tr>
         <Tr>
