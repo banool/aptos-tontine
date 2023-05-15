@@ -49,7 +49,11 @@ def run_api(config: Config):
                     "tontine_address": membership.tontine_address,
                     "is_creator": membership.is_creator,
                     "has_ever_contributed": membership.has_ever_contributed,
-                    "state": tontine_address_to_state[membership.tontine_address],
+                    # 0 and 1 are staging and locked. The absence of a row is
+                    # considered "complete", which we represent by -1.
+                    "state": tontine_address_to_state.get(
+                        membership.tontine_address, -1
+                    ),
                 }
             )
         return out
