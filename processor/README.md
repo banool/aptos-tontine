@@ -1,7 +1,9 @@
 ## Tontine Processor
-This is an all-in-one processor for the Tontine module. This processor results in the `tontine_membership` table, which tracks what tontines exist and who their members are. We also track whether a member is the creator of the tontine or not.
+This is an all-in-one processor for the Tontine module. It processes events from the txn stream to populate the `tontine_membership` and `tontine_state` tables. These tables track repesctively what tontines exist and who their members are, and what the basic state of the tontines are.
 
-Currently it does not do more than that, the table is meant only for making it possible to look up what tontines a member is a part of. The frontend will use this API and then retrieve the rest of the information via a fullnode API.
+In addition to the processor, it exposes an API that lets you lookup what tontines someone is a part of and this basic state information.
+
+The intent of the processor is only for discovering tontine membership and basic state for the purposes of displaying all the tontines a user is part of in the UI. It is not meant to be the one stop shop for information about tontines, it is just the entry point and then additional information can be retrieved from the fullnode API and view functions.
 
 This processor is written to be as simple deploy as possible:
 - Both the processor and the API are run from the same process.
