@@ -3,7 +3,7 @@
 
 //! See the README for more information about how this tontine module works.
 
-module addr::tontine03 {
+module addr::tontine04 {
     use std::error;
     use std::option::{Self, Option};
     use std::signer;
@@ -240,8 +240,8 @@ module addr::tontine03 {
     }
 
     struct TontineConfig has store {
-        /// Vanity name for the tontine, this is only used for display purposes.
-        name: string::String,
+        /// Vanity description for the tontine, this is only used for display purposes.
+        description: string::String,
 
         /// Who (where identity is defined by account address) is party to the tontine.
         /// If the creator does not include their own address in this, we will add it.
@@ -324,14 +324,14 @@ module addr::tontine03 {
     // No fallback policy for now, not yet implemented. Look into enums.
     public entry fun create(
         caller: &signer,
-        name: string::String,
+        description: string::String,
         invitees: vector<address>,
         check_in_frequency_secs: u64,
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
     ) {
-        create_(caller, name, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy);
+        create_(caller, description, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy);
     }
 
     /// This function is separate from the top level create function so we can use it
@@ -339,7 +339,7 @@ module addr::tontine03 {
     /// anything but we need it to return the object with the tontine in it.
     fun create_(
         caller: &signer,
-        name: string::String,
+        description: string::String,
         invitees: vector<address>,
         check_in_frequency_secs: u64,
         claim_window_secs: u64,
@@ -388,7 +388,7 @@ module addr::tontine03 {
         // Build the TontineConfig. We modify some of the arguments above (e.g.
         // `invitees`) so this isn't a direct mapping of the inputs.
         let tontine_config = TontineConfig {
-            name,
+            description,
             members: invitees,
             per_member_amount_octa: per_member_amount_octa,
             check_in_frequency_secs: check_in_frequency_secs,
@@ -561,6 +561,9 @@ module addr::tontine03 {
         let caller_addr = signer::address_of(caller);
         let allowed = vector::empty();
         vector::push_back(&mut allowed, MEMBER_STATUS_STILL_ELIGIBLE);
+        // Let the user keep checking in if they want, even though they could just
+        // claim the funds.
+        vector::push_back(&mut allowed, MEMBER_STATUS_CAN_CLAIM_FUNDS);
         assert_member_status(tontine, allowed, caller_addr);
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
