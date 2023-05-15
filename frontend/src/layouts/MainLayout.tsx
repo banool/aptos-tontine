@@ -22,10 +22,11 @@ interface LayoutProps {
 // TODO: Figure out how to make IconButton padding for GitHub button the same
 // as the color switcher button.
 export default function MainLayout({ children }: LayoutProps) {
-  const { isLoading, aptToUsd, error } = useGetAptToUsd();
   const { connected } = useWallet();
 
-  let headerMiddle = null;
+  var headerMiddle = null;
+  /*
+  const { isLoading, aptToUsd, error } = useGetAptToUsd();
   if (isLoading) {
     headerMiddle = <Text textAlign={"center"}>Loading APT price...</Text>;
   }
@@ -43,6 +44,19 @@ export default function MainLayout({ children }: LayoutProps) {
     console.log("Error loading APT price:");
     console.log(error);
   }
+  */
+
+  function getRandomFaceEmoji(): string {
+    const emojis = ["😀", "😃", "😄", "😁", "😆", "🤠", "😊", "🥳"];
+    const randomIndex = Math.floor(Math.random() * emojis.length);
+    return emojis[randomIndex];
+  }
+
+  headerMiddle = (
+    <Text textAlign="center" letterSpacing={5} fontSize={18}>
+      {getRandomFaceEmoji().repeat(3)}
+    </Text>
+  );
 
   let walletConnectComponent = null;
   if (connected) {
