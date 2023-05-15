@@ -1,5 +1,6 @@
 import argparse
 import logging
+import time
 from multiprocessing import Pool, set_start_method
 
 from api import run_api
@@ -33,8 +34,17 @@ def main():
         "indefinitely..."
     )
 
-    p1.get()
-    p2.get()
+    # Wait for either of the processes to finish (which should never happen).
+    while True:
+        if p1.ready() or p2.ready():
+            break
+        time.sleep(0.1)
+
+    if p1.ready():
+        logging.error(f"API process unexpectedly exited: {p1.get()}")
+
+    if p2.ready():
+        logging.error(f"Processor process unexpectedly exited: {p2.get()}")
 
     p.close()
 

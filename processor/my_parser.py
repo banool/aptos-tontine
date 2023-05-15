@@ -101,20 +101,20 @@ def parse(
                 )
             )
 
-        if event.type.struct.name == "MemberLeftEvent":
-            membership_additions.append(
-                TontineMembershipDeletion(
-                    tontine_address=tontine_address,
-                    member_address=standardize_address(data["member"]),
-                )
-            )
-
         if event.type.struct.name == "MemberContributedEvent":
-            membership_additions.append(
+            membership_updates.append(
                 TontineMembershipUpdate(
                     tontine_address=tontine_address,
                     member_address=standardize_address(data["member"]),
                     has_ever_contributed=True,
+                )
+            )
+
+        if event.type.struct.name == "MemberLeftEvent":
+            membership_deletions.append(
+                TontineMembershipDeletion(
+                    tontine_address=tontine_address,
+                    member_address=standardize_address(data["member"]),
                 )
             )
 

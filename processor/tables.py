@@ -2,7 +2,15 @@ import argparse
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, DateTime, String, create_engine, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Integer,
+    String,
+    create_engine,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from config import Config
@@ -27,10 +35,10 @@ class TontineMembership(Base):
 
     tontine_address: Mapped[str] = mapped_column(String, primary_key=True)
     member_address: Mapped[str] = mapped_column(String, primary_key=True)
-    is_creator: Mapped[bool]
+    is_creator: Mapped[bool] = mapped_column(Boolean, default=False)
     # True if the member has ever contributed to the tontine, even if they
     # withdrew or left later.
-    has_ever_contributed: Mapped[bool] = mapped_column(default=False)
+    has_ever_contributed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 # You'll notice there is no enum variant to represent the finished state. To represent
@@ -48,7 +56,7 @@ class TontineState(Base):
     __tablename__ = "tontine_state"
 
     tontine_address: Mapped[str] = mapped_column(String, primary_key=True)
-    state: Mapped[int]
+    state: Mapped[int] = mapped_column(Integer)
 
 
 class NextVersionToProcess(Base):
