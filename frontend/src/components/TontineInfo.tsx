@@ -20,6 +20,7 @@ import { getModuleId, useGlobalState } from "../GlobalState";
 import { useState } from "react";
 import {
   getContributionAmount,
+  getDurationPretty,
   getShortAddress,
   octaToAptNormal,
   simpleMapArrayToMap,
@@ -130,6 +131,7 @@ export function TontineInfo({
           <ConfigTable
             tontineData={tontineData}
             objectData={objectData}
+            activeTontine={activeTontine}
             overallStatus={overallStatus}
             memberStatusesData={memberStatusesData}
             isLocked={isLocked}
@@ -348,6 +350,7 @@ export function ContributionTable({
 export function ConfigTable({
   tontineData,
   objectData,
+  activeTontine,
   overallStatus,
   memberStatusesData,
   isLocked,
@@ -355,6 +358,7 @@ export function ConfigTable({
 }: {
   tontineData: any;
   objectData: any;
+  activeTontine: TontineMembership;
   overallStatus: number | undefined;
   memberStatusesData: Map<string, number> | undefined;
   isLocked: boolean;
@@ -379,6 +383,30 @@ export function ConfigTable({
     <Table variant="simple">
       <Tbody>
         <Tr>
+          <Th>
+            <Text>
+              {"Tontine address "}
+              <sup>
+                <Tooltip label="The address of the object containing the tontine">
+                  ⓘ
+                </Tooltip>
+              </sup>
+            </Text>
+          </Th>
+          <Td>
+            <SelectableTooltip
+              textComponent={
+                <Text>{getShortAddress(activeTontine.tontine_address)}</Text>
+              }
+              label={activeTontine.tontine_address}
+            />
+          </Td>
+        </Tr>
+        <Tr>
+          <Th>Description</Th>
+          <Td>{tontineData.config.description}</Td>
+        </Tr>
+        <Tr>
           <Th>Creator</Th>
           <Td>
             <SelectableTooltip
@@ -388,8 +416,55 @@ export function ConfigTable({
           </Td>
         </Tr>
         <Tr>
-          <Th>Description</Th>
-          <Td>{tontineData.config.description}</Td>
+          <Th>Required contribution per member</Th>
+          <Td>{`${octaToAptNormal(
+            tontineData.config.per_member_amount_octa,
+          )} APT`}</Td>
+        </Tr>
+        <Tr>
+          <Th>Required check in frequency</Th>
+          <Td>
+            <Tooltip
+              label={`Every ${tontineData.config.check_in_frequency_secs} seconds`}
+            >{`Every ${getDurationPretty(
+              tontineData.config.check_in_frequency_secs,
+            )}`}</Tooltip>
+          </Td>
+        </Tr>
+        <Tr>
+          <Th>
+            <Text>
+              {"Claim window "}
+              <sup>
+                <Tooltip label="Once only one member remains, this is how long they have to claim the funds.">
+                  ⓘ
+                </Tooltip>
+              </sup>
+            </Text>
+          </Th>
+          <Td>
+            <Tooltip
+              label={`${tontineData.config.claim_window_secs} seconds`}
+            >{`${getDurationPretty(
+              tontineData.config.claim_window_secs,
+            )}`}</Tooltip>
+          </Td>
+        </Tr>
+
+        <Tr>
+          <Th>
+            {"Fallback Policy "}
+            <sup>
+              <Tooltip
+                label={"This is what happens if no one claims the funds"}
+              >
+                ⓘ
+              </Tooltip>
+            </sup>
+          </Th>
+          <Td>
+            {getFallbackPolicyText(tontineData.config.fallback_policy.policy)}
+          </Td>
         </Tr>
         <Tr>
           <Th>
@@ -432,31 +507,6 @@ export function ConfigTable({
             {tontineData.funds_claimed_secs > 0
               ? new Date(tontineData.funds_claimed_secs * 1000).toLocaleString()
               : "Funds not claimed yet"}
-          </Td>
-        </Tr>
-        <Tr>
-          <Th>Required check in frequency</Th>
-          <Td>{`Every ${tontineData.config.check_in_frequency_secs} secs`}</Td>
-        </Tr>
-        <Tr>
-          <Th>Required contribution per member</Th>
-          <Td>{`${octaToAptNormal(
-            tontineData.config.per_member_amount_octa,
-          )} APT`}</Td>
-        </Tr>
-        <Tr>
-          <Th>
-            {"Fallback Policy "}
-            <sup>
-              <Tooltip
-                label={"This is what happens if no one claims the funds"}
-              >
-                ⓘ
-              </Tooltip>
-            </sup>
-          </Th>
-          <Td>
-            {getFallbackPolicyText(tontineData.config.fallback_policy.policy)}
           </Td>
         </Tr>
       </Tbody>

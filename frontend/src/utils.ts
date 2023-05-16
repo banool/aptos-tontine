@@ -196,7 +196,7 @@ export function simpleMapArrayToMap(
 }
 
 // Confirm that a string representing an APT amount is a valid number and converts
-// correctly to OCTA. Returns the value as a number in APT if valid or null if not
+// correctly to OCTA. Returns the value as a number in OCTA if valid or null if not.
 export function validateAptString(s: string): number | null {
   try {
     const a = aptToOcta(parseFloat(s));
