@@ -45,6 +45,7 @@ import {
 import { useGetAnsNames } from "../api/hooks/useGetAnsName";
 import { useGetAnsAddresses } from "../api/hooks/useGetAnsAddress";
 import {
+  aptToOcta,
   getDurationPretty,
   isValidAccountAddress,
   validateAptString,
@@ -89,6 +90,7 @@ export function CreateTontine({}: {}) {
         }
       }
     });
+    const requiredContributionInOcta = aptToOcta(values.requiredContribution);
     try {
       await create(
         signAndSubmitTransaction,
@@ -98,7 +100,7 @@ export function CreateTontine({}: {}) {
         invitees,
         values.checkInFrequency,
         values.claimWindow,
-        values.requiredContribution,
+        requiredContributionInOcta,
         parseInt(values.fallbackPolicy),
       );
       toast({
