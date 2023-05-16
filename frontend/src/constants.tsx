@@ -4,7 +4,6 @@
 export const networks = {
   mainnet: "https://fullnode.mainnet.aptoslabs.com/",
   testnet: "https://fullnode.testnet.aptoslabs.com",
-  devnet: "https://fullnode.devnet.aptoslabs.com/",
   local: "http://localhost:8080",
 };
 
@@ -17,11 +16,6 @@ export const moduleLocations = {
     name: "tontine04",
   },
   testnet: {
-    address:
-      "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine04",
-  },
-  devnet: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
     name: "tontine04",
