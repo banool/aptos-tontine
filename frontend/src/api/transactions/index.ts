@@ -87,6 +87,7 @@ export async function checkIn(
     type_arguments: [],
     arguments: [tontineAddress],
   };
+  console.log("Submitting transaction", JSON.stringify(transaction));
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }
 
@@ -116,6 +117,33 @@ export async function executeFallback(
     function: `${moduleId}::execute_fallback`,
     type_arguments: [],
     arguments: [tontineAddress],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
+
+export async function create(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  description: string,
+  invitees: string[],
+  checkInFrequencySecs: number,
+  claimWindowSecs: number,
+  contributionAmountOcta: number,
+  fallbackPolicy: number,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::create`,
+    type_arguments: [],
+    arguments: [
+      description,
+      invitees,
+      checkInFrequencySecs,
+      claimWindowSecs,
+      contributionAmountOcta,
+      fallbackPolicy,
+    ],
   };
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }

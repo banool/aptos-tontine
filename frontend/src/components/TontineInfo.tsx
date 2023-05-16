@@ -35,6 +35,10 @@ import {
   MEMBER_STATUS_INELIGIBLE,
   MEMBER_STATUS_READY,
   MEMBER_STATUS_STILL_ELIGIBLE,
+  OVERALL_STATUS_FALLBACK_EXECUTED,
+  OVERALL_STATUS_FUNDS_CLAIMED,
+  OVERALL_STATUS_FUNDS_NEVER_CLAIMED,
+  getFallbackPolicyText,
 } from "../constants";
 import { SelectableTooltip } from "./SelectableTooltip";
 
@@ -181,6 +185,10 @@ export function ContributionTable({
   const checkInFrequencySecs: number = parseInt(
     tontineData.config.check_in_frequency_secs,
   );
+  const isTerminal =
+    overallStatus === OVERALL_STATUS_FUNDS_CLAIMED ||
+    overallStatus === OVERALL_STATUS_FUNDS_NEVER_CLAIMED ||
+    overallStatus === OVERALL_STATUS_FALLBACK_EXECUTED;
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -273,6 +281,8 @@ export function ContributionTable({
         isReadyText = "No";
       }
       fourthColumnComponent = <Text>{isReadyText}</Text>;
+    } else if (isTerminal) {
+      fourthColumnComponent = <Text>N/A</Text>;
     } else {
       const nextCheckIn = (lastCheckIn ?? createdAt) + checkInFrequencySecs;
       console.log("nextCheckIn", nextCheckIn);
@@ -293,7 +303,7 @@ export function ContributionTable({
       } else if (memberStatus === MEMBER_STATUS_CAN_CLAIM_FUNDS) {
         text = "Can claim";
       } else if (memberStatus === MEMBER_STATUS_CLAIMED_FUNDS) {
-        text = "Claimed funds";
+        text = "Funds claimed";
       } else {
         text = "Failed to claim";
       }
@@ -363,6 +373,8 @@ export function ConfigTable({
     label = creatorAddress;
   }
 
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   return (
     <Table variant="simple">
       <Tbody>
@@ -380,6 +392,49 @@ export function ConfigTable({
           <Td>{tontineData.config.description}</Td>
         </Tr>
         <Tr>
+          <Th>
+            <Text>
+              {"Created at "}
+              <sup>
+                <Tooltip label={`Using timezone ${tz}`}>ⓘ</Tooltip>
+              </sup>
+            </Text>
+          </Th>
+          <Td>
+            {new Date(tontineData.creation_time_secs * 1000).toLocaleString()}
+          </Td>
+        </Tr>
+        <Tr>
+          <Th>
+            <Text>
+              {"Locked at "}
+              <sup>
+                <Tooltip label={`Using timezone ${tz}`}>ⓘ</Tooltip>
+              </sup>
+            </Text>
+          </Th>
+          <Td>
+            {tontineData.locked_time_secs > 0
+              ? new Date(tontineData.locked_time_secs * 1000).toLocaleString()
+              : "Not locked yet"}
+          </Td>
+        </Tr>
+        <Tr>
+          <Th>
+            <Text>
+              {"Funds claimed at "}
+              <sup>
+                <Tooltip label={`Using timezone ${tz}`}>ⓘ</Tooltip>
+              </sup>
+            </Text>
+          </Th>
+          <Td>
+            {tontineData.funds_claimed_secs > 0
+              ? new Date(tontineData.funds_claimed_secs * 1000).toLocaleString()
+              : "Funds not claimed yet"}
+          </Td>
+        </Tr>
+        <Tr>
           <Th>Required check in frequency</Th>
           <Td>{`Every ${tontineData.config.check_in_frequency_secs} secs`}</Td>
         </Tr>
@@ -389,7 +444,21 @@ export function ConfigTable({
             tontineData.config.per_member_amount_octa,
           )} APT`}</Td>
         </Tr>
-        {/* Add more rows as needed */}
+        <Tr>
+          <Th>
+            {"Fallback Policy "}
+            <sup>
+              <Tooltip
+                label={"This is what happens if no one claims the funds"}
+              >
+                ⓘ
+              </Tooltip>
+            </sup>
+          </Th>
+          <Td>
+            {getFallbackPolicyText(tontineData.config.fallback_policy.policy)}
+          </Td>
+        </Tr>
       </Tbody>
     </Table>
   );

@@ -3,7 +3,7 @@ import { useGlobalState } from "../../GlobalState";
 import { getAnsName } from "..";
 import { NetworkName } from "../../constants";
 
-export type AnsLookup = {
+export type AnsNameLookup = {
   address: string;
   name: string | undefined;
 };
@@ -11,7 +11,7 @@ export type AnsLookup = {
 const fetchNames = async (
   addresses: string[],
   network_name: NetworkName,
-): Promise<AnsLookup[]> => {
+): Promise<AnsNameLookup[]> => {
   return await Promise.all(
     addresses.map(async (address: any) => {
       return {
@@ -27,13 +27,14 @@ export function useGetAnsNames(
   options: {
     enabled?: boolean;
   } = {},
-): UseQueryResult<AnsLookup[]> {
+): UseQueryResult<AnsNameLookup[]> {
   const [state, _setState] = useGlobalState();
 
+  const addresses = addressesFn();
   return useQuery(
-    ["ansNames", { addressesFn }, state.network_value],
+    ["ansNames", { addresses }, state.network_value],
     async () => {
-      return fetchNames(addressesFn(), state.network_name);
+      return fetchNames(addresses, state.network_name);
     },
     { refetchOnWindowFocus: false, enabled: options.enabled },
   );

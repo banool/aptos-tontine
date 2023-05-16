@@ -12,7 +12,6 @@ import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { getShortAddress, interleave } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { useGetAnsNames } from "../api/hooks/useGetAnsName";
 import { SelectableTooltip } from "./SelectableTooltip";
 
 export function TontineListCard({
@@ -33,6 +32,7 @@ export function TontineListCard({
   );
 
   const selectedColor = colorMode.colorMode === "dark" ? "#172131" : "gray.300";
+  const borderColor = colorMode.colorMode === "dark" ? "gray.400" : "gray.500";
 
   var title = "Loading...";
   if (error) {
@@ -46,7 +46,7 @@ export function TontineListCard({
       <Card
         bg={active ? selectedColor : undefined}
         borderWidth="1px"
-        borderColor={active ? "white" : "transparent"}
+        borderColor={active ? borderColor : "transparent"}
       >
         <CardHeader paddingBottom={0}>
           <Heading size="md">{title}</Heading>

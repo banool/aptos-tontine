@@ -52,11 +52,13 @@ export default function MainLayout({ children }: LayoutProps) {
     return emojis[randomIndex];
   }
 
+  /*
   headerMiddle = (
     <Text textAlign="center" letterSpacing={5} fontSize={18}>
       {getRandomFaceEmoji().repeat(3)}
     </Text>
   );
+  */
 
   let walletConnectComponent = null;
   if (connected) {

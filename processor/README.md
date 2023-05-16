@@ -1,4 +1,4 @@
-## Tontine Processor
+## Aptos Tontine: Processor
 This is an all-in-one processor for the Tontine module. It processes events from the txn stream to populate the `tontine_membership` and `tontine_state` tables. These tables track repesctively what tontines exist and who their members are, and what the basic state of the tontines are.
 
 In addition to the processor, it exposes an API that lets you lookup what tontines someone is a part of and this basic state information.

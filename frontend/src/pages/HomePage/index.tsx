@@ -15,6 +15,7 @@ import { TontineDisplay } from "../../components/TontineDisplay";
 import { useGlobalState } from "../../GlobalState";
 import simpsonsImage from "../../images/simpsons_tontine.png";
 import { HomeActions } from "../../components/HomeActions";
+import { CreateTontine } from "../../components/CreateTontine";
 
 export const HomePage = () => {
   const { connected, network } = useWallet();
@@ -24,7 +25,7 @@ export const HomePage = () => {
     null,
   );
 
-  console.log("active", activeTontine);
+  const [showingCreateComponent, setShowingCreateComponent] = useState(false);
 
   const linkColor = useColorModeValue("blue.500", "blue.300");
 
@@ -49,45 +50,53 @@ export const HomePage = () => {
   }
 
   const infoComponent = (
-    <Box>
-      <Box
-        borderLeftWidth="3px"
-        borderLeftColor="blue.500"
-        pl={4}
-        py={2}
-        mt={4}
-        fontStyle="italic"
-      >
-        Works of fiction ... often feature a variant model of the tontine in
-        which the capital devolves upon the last surviving nominee, thereby
-        dissolving the trust and potentially making the survivor very wealthy.
-        It is unclear whether this model ever existed in the real world.
-      </Box>
-      <Box p={3}>
-        &mdash; <i>Tontine</i>,{" "}
-        <Link
-          color={linkColor}
-          href="https://en.wikipedia.org/wiki/Tontine#In_popular_culture"
+    <Box
+      p={7}
+      paddingTop={0}
+      display="flex"
+      justifyContent="center"
+      height="100%"
+    >
+      <Box>
+        <Box
+          borderLeftWidth="3px"
+          borderLeftColor="blue.500"
+          pl={4}
+          py={2}
+          mt={4}
+          fontStyle="italic"
         >
-          Wikipedia
-        </Link>
-      </Box>
-      <Center>
-        <Image src={simpsonsImage} width="55%" alt="Simpsons Tontine" />
-      </Center>
-      <Box p={3}>
-        &mdash;{" "}
-        <i>
-          Raging Abe Simpson and His Grumbling Grandson in 'The Curse of the
-          Flying Hellfish'
-        </i>
-        ,{" "}
-        <Link
-          color={linkColor}
-          href="https://en.wikipedia.org/wiki/Raging_Abe_Simpson_and_His_Grumbling_Grandson_in_%27The_Curse_of_the_Flying_Hellfish%27"
-        >
-          Wikipedia
-        </Link>
+          Works of fiction ... often feature a variant model of the tontine in
+          which the capital devolves upon the last surviving nominee, thereby
+          dissolving the trust and potentially making the survivor very wealthy.
+          It is unclear whether this model ever existed in the real world.
+        </Box>
+        <Box p={3}>
+          &mdash; <i>Tontine</i>,{" "}
+          <Link
+            color={linkColor}
+            href="https://en.wikipedia.org/wiki/Tontine#In_popular_culture"
+          >
+            Wikipedia
+          </Link>
+        </Box>
+        <Center>
+          <Image src={simpsonsImage} width="55%" alt="Simpsons Tontine" />
+        </Center>
+        <Box p={3}>
+          &mdash;{" "}
+          <i>
+            Raging Abe Simpson and His Grumbling Grandson in 'The Curse of the
+            Flying Hellfish'
+          </i>
+          ,{" "}
+          <Link
+            color={linkColor}
+            href="https://en.wikipedia.org/wiki/Raging_Abe_Simpson_and_His_Grumbling_Grandson_in_%27The_Curse_of_the_Flying_Hellfish%27"
+          >
+            Wikipedia
+          </Link>
+        </Box>
       </Box>
     </Box>
   );
@@ -110,16 +119,11 @@ export const HomePage = () => {
           />
         ) : (
           <Box>
-            <HomeActions />
-            <Box
-              p={7}
-              paddingTop={0}
-              display="flex"
-              justifyContent="center"
-              height="100%"
-            >
-              {infoComponent}
-            </Box>
+            <HomeActions
+              showingCreateComponent={showingCreateComponent}
+              setShowingCreateComponent={setShowingCreateComponent}
+            />
+            {showingCreateComponent ? <CreateTontine /> : infoComponent}
           </Box>
         )}
       </Box>

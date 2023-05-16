@@ -96,3 +96,14 @@ export async function getAnsName(
   const data = await response.json();
   return data.name;
 }
+
+export async function getAnsAddress(
+  name: string,
+  network: NetworkName,
+): Promise<string | undefined> {
+  const response = await fetch(
+    `https://www.aptosnames.com/api/${network}/v1/address/${name}`,
+  );
+  const data = await response.json();
+  return data.name;
+}

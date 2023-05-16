@@ -23,6 +23,8 @@ import {
 } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import {
+  OCTA_NEGATIVE_EXPONENT,
+  OCTA_POSITIVE_EXPONENT,
   aptToOcta,
   getContributionAmount,
   getShortAddress,
@@ -30,6 +32,7 @@ import {
   octaToApt,
   octaToAptNormal,
   simpleMapArrayToMap,
+  validateAptString,
 } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
@@ -85,7 +88,7 @@ export function TontineActions({
 
   const moduleId = getModuleId(state);
 
-  const [amountOctaFormField, setAmountOctaFormField] = useState(0);
+  const [amountAptFormField, setAmountAptFormField] = useState("");
   const [waitingForTransaction, setWaitingForTransaction] = useState(false);
 
   const { isLoading, accountResource, error } = useGetAccountResource(
@@ -169,6 +172,7 @@ export function TontineActions({
 
   const handleContribute = async () => {
     setWaitingForTransaction(true);
+    const amountOcta = aptToOcta(parseFloat(amountAptFormField));
 
     try {
       // TODO: Make this configurable.
@@ -177,14 +181,12 @@ export function TontineActions({
         moduleId,
         state.network_value,
         activeTontine.tontine_address,
-        amountOctaFormField,
+        amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
       onTxnSuccess({
         title: "Contributed funds to tontine",
-        description: `Successfully contributed ${octaToAptNormal(
-          amountOctaFormField,
-        )} APT (${amountOctaFormField} OCTA)`,
+        description: `Successfully contributed ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
     } catch (e) {
       onTxnFailure({
@@ -192,7 +194,7 @@ export function TontineActions({
         description: "Error: " + e,
       });
     } finally {
-      setAmountOctaFormField(0);
+      setAmountAptFormField("");
       contributeOnClose();
       setWaitingForTransaction(false);
     }
@@ -200,6 +202,7 @@ export function TontineActions({
 
   const handleWithdraw = async () => {
     setWaitingForTransaction(true);
+    const amountOcta = aptToOcta(parseFloat(amountAptFormField));
 
     try {
       // TODO: Make this configurable.
@@ -208,14 +211,12 @@ export function TontineActions({
         moduleId,
         state.network_value,
         activeTontine.tontine_address,
-        amountOctaFormField,
+        amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
       onTxnSuccess({
         title: "Withdrew funds from tontine",
-        description: `Successfully withdrew ${octaToAptNormal(
-          amountOctaFormField,
-        )} APT (${amountOctaFormField} OCTA)`,
+        description: `Successfully withdrew ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
     } catch (e) {
       onTxnFailure({
@@ -223,7 +224,7 @@ export function TontineActions({
         description: "Error: " + e,
       });
     } finally {
-      setAmountOctaFormField(0);
+      setAmountAptFormField("");
       withdrawOnClose();
       setWaitingForTransaction(false);
     }
@@ -363,6 +364,14 @@ export function TontineActions({
     executeFallbackTooltip = message;
   }
 
+  var amountAptFormFieldOctaString = "0 OCTA";
+  var inputAmountValid = false;
+  const inputAsApt = validateAptString(amountAptFormField);
+  if (inputAsApt !== null) {
+    amountAptFormFieldOctaString = `${inputAsApt.toFixed(0)} OCTA`;
+    inputAmountValid = true;
+  }
+
   // TODO: If you're the creator of the tontine, you should be able to add / remove
   // people too.
 
@@ -374,20 +383,15 @@ export function TontineActions({
         <ModalCloseButton />
         <ModalBody>
           <FormControl paddingBottom={5} isRequired>
-            <FormLabel>Contribution amount (OCTA)</FormLabel>
-            <NumberInput min={1} value={amountOctaFormField}>
+            <FormLabel>Contribution amount (APT)</FormLabel>
+            <NumberInput value={amountAptFormField}>
               <NumberInputField
-                onChange={(e) =>
-                  setAmountOctaFormField(parseInt(e.target.value))
-                }
+                onChange={(e) => {
+                  setAmountAptFormField(e.target.value);
+                }}
               />
             </NumberInput>
-            <Text paddingTop={2}>{`${octaToAptNormal(
-              amountOctaFormField,
-            ).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 8,
-            })} APT`}</Text>
+            <Text paddingTop={2}>{amountAptFormFieldOctaString}</Text>
           </FormControl>
         </ModalBody>
         <ModalFooter>
@@ -400,7 +404,11 @@ export function TontineActions({
           >
             <Button
               isDisabled={remainingContribution <= 0}
-              onClick={() => setAmountOctaFormField(remainingContribution)}
+              onClick={() =>
+                setAmountAptFormField(
+                  `${octaToAptNormal(remainingContribution)}`,
+                )
+              }
             >
               Remaining
             </Button>
@@ -408,7 +416,7 @@ export function TontineActions({
           <Spacer />
           <Button
             colorScheme="blue"
-            isDisabled={amountOctaFormField === 0}
+            isDisabled={!inputAmountValid}
             onClick={() => handleContribute()}
             mr={3}
           >
@@ -416,7 +424,7 @@ export function TontineActions({
           </Button>
           <Button
             onClick={() => {
-              setAmountOctaFormField(0);
+              setAmountAptFormField("");
               contributeOnClose();
             }}
           >
@@ -435,34 +443,29 @@ export function TontineActions({
         <ModalCloseButton />
         <ModalBody>
           <FormControl paddingBottom={5} isRequired>
-            <FormLabel>Withdrawal amount (OCTA)</FormLabel>
-            <NumberInput min={1} value={amountOctaFormField}>
+            <FormLabel>Withdrawal amount (APT)</FormLabel>
+            <NumberInput min={1} value={amountAptFormField}>
               <NumberInputField
                 onChange={(e) => {
-                  var num = parseInt(e.target.value);
-                  if (Number.isNaN(num)) {
-                    num = 0;
-                  }
-                  setAmountOctaFormField(num);
+                  setAmountAptFormField(e.target.value);
                 }}
               />
             </NumberInput>
-            <Text paddingTop={2}>{`${octaToAptNormal(
-              amountOctaFormField,
-            ).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 8,
-            })} APT`}</Text>
+            <Text paddingTop={2}>{amountAptFormFieldOctaString}</Text>
           </FormControl>
         </ModalBody>
         <ModalFooter>
-          <Button onClick={() => setAmountOctaFormField(contributionAmount)}>
+          <Button
+            onClick={() =>
+              setAmountAptFormField(`${octaToAptNormal(contributionAmount)}`)
+            }
+          >
             Contributed
           </Button>
           <Spacer />
           <Button
             colorScheme="blue"
-            isDisabled={amountOctaFormField === 0}
+            isDisabled={!inputAmountValid}
             onClick={() => handleWithdraw()}
             mr={3}
           >
@@ -470,7 +473,7 @@ export function TontineActions({
           </Button>
           <Button
             onClick={() => {
-              setAmountOctaFormField(0);
+              setAmountAptFormField("");
               withdrawOnClose();
             }}
           >

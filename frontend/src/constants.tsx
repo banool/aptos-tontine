@@ -92,3 +92,17 @@ export const OVERALL_STATUS_FUNDS_CLAIMABLE: number = 68;
 export const OVERALL_STATUS_FUNDS_CLAIMED: number = 69;
 export const OVERALL_STATUS_FUNDS_NEVER_CLAIMED: number = 70;
 export const OVERALL_STATUS_FALLBACK_EXECUTED: number = 71;
+
+export const FALLBACK_POLICY_RETURN_TO_MEMBERS: number = 0;
+export const FALLBACK_POLICY_SEND_TO_GIVING_APT: number = 1;
+
+export const getFallbackPolicyText = (fallbackPolicy: number) => {
+  switch (fallbackPolicy) {
+    case FALLBACK_POLICY_RETURN_TO_MEMBERS:
+      return "Return to members";
+    case FALLBACK_POLICY_SEND_TO_GIVING_APT:
+      return "Send to giving.apt";
+    default:
+      return "Unknown";
+  }
+};

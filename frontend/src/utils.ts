@@ -114,26 +114,23 @@ export function getDatetimePretty(unixtimeSecs: number) {
   return time;
 }
 
-// From https://stackoverflow.com/a/7579799.
-export function getDurationPretty(durationSecs: number) {
-  var hours: any = Math.floor(durationSecs / 3600);
-  var minutes: any = Math.floor((durationSecs - hours * 3600) / 60);
-  var seconds: any = durationSecs - hours * 3600 - minutes * 60;
-  var time = "";
+export function getDurationPretty(seconds: number): string {
+  const days = Math.floor(seconds / (24 * 60 * 60));
+  seconds -= days * 24 * 60 * 60;
+  const hours = Math.floor(seconds / (60 * 60));
+  seconds -= hours * 60 * 60;
+  const minutes = Math.floor(seconds / 60);
+  seconds -= minutes * 60;
 
-  if (hours !== 0) {
-    time = hours + " hours ";
-  }
-  if (minutes !== 0 || time !== "") {
-    minutes = minutes < 10 && time !== "" ? "0" + minutes : String(minutes);
-    time += minutes + " minutes ";
-  }
-  if (time === "") {
-    time = seconds + " seconds";
-  } else {
-    time += seconds < 10 ? "0" + seconds : String(seconds) + " seconds";
-  }
-  return time;
+  let duration: string[] = [];
+  if (days > 0) duration.push(`${days} ${days === 1 ? "day" : "days"}`);
+  if (hours > 0) duration.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+  if (minutes > 0)
+    duration.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+  if (seconds > 0)
+    duration.push(`${seconds} ${seconds === 1 ? "second" : "seconds"}`);
+
+  return duration.join(" ");
 }
 
 export const OCTA_NUMBER: number = 8 as const;
@@ -170,14 +167,6 @@ export function formatUsdAmount(usdAmount: number | bigint): string {
   })}`;
 }
 
-// Builds a link to the account page of the explorer for the given address.
-export function useBuildExplorerUrl(accountAddress: string): string {
-  const [state, _setState] = useGlobalState();
-  const networkParam =
-    state.network_name === "mainnet" ? "" : `?network=${state.network_name}`;
-  return `https://explorer.aptoslabs.com/account/${accountAddress}${networkParam}`;
-}
-
 // https://stackoverflow.com/a/67629097/3846032
 export const interleave = (array: any[], ele: any) => {
   return array.flatMap((x) => [ele, x]).slice(1);
@@ -204,4 +193,18 @@ export function simpleMapArrayToMap(
     map.set(item.key, item.value);
   });
   return map;
+}
+
+// Confirm that a string representing an APT amount is a valid number and converts
+// correctly to OCTA. Returns the value as a number in APT if valid or null if not
+export function validateAptString(s: string): number | null {
+  try {
+    const a = aptToOcta(parseFloat(s));
+    // Confirm we still have an OCTA amount of APT.
+    Number.isInteger(a);
+    if (!Number.isNaN(a) && a >= 1) {
+      return a;
+    }
+  } catch (_) {}
+  return null;
 }

@@ -1,9 +1,10 @@
-# Aptos Vesting Dashboard
+# Aptos Tontine: Frontend
 
-The Aptos Vesting Dashboard has three main goals:
-1. Show information about a vesting contract. If a specific shareholder (beneficiary) address is given, it will augment the output with information specific to that shareholder.
-2. Allow users to easily and correctly interact with a vesting contract on chain, such as to unlock and distribute staking rewards.
-3. Educate users about how the vesting / staking contracts work.
+The frontend lets you do the following:
+1. Create a tontine.
+1. See what tontines you have created, joined, or been invited to.
+1. View information about tontines.
+1. Interact with tontines.
 
 ## Development
 To get started, run:
@@ -12,10 +13,9 @@ pnpm install
 pnpm start
 ```
 
-To check your code:
+To format your code:
 ```
 pnpm fmt
-pnpm lint
 ```
 
 ## Deployment
