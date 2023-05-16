@@ -1,0 +1,16 @@
+[Unit]
+Description=Tontine Processor
+Wants=network.target
+After=network-online.target
+
+[Service]
+Restart=always
+TimeoutStopSec=15
+RestartSec=20
+WorkingDirectory=/home/daniel/aptos-tontine/processor
+ExecStartPre=-bash -c 'kill $(lsof -ti :6781)'
+ExecStart=/home/daniel/.local/bin/poetry run python /home/daniel/aptos-tontine/processor/main.py -c config/mainnet.yaml
+Type=simple
+
+[Install]
+WantedBy=multi-user.target default.target
