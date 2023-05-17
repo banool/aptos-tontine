@@ -339,7 +339,7 @@ module addr::tontine05 {
     /// This function is separate from the top level create function so we can use it
     /// tests. This is necessary because entry functions (correctly) cannot return
     /// anything but we need it to return the object with the tontine in it.
-    fun create_(
+    inline fun create_(
         caller: &signer,
         description: string::String,
         invitees: vector<address>,
@@ -747,7 +747,7 @@ module addr::tontine05 {
     }
 
     // Withdraw all the funds for a member, if any.
-    fun withdraw_all(
+    inline fun withdraw_all(
         tontine_: &mut Tontine,
         withdrawer: address,
     ) {
@@ -757,7 +757,7 @@ module addr::tontine05 {
         }
     }
 
-    fun withdraw_part(
+    inline fun withdraw_part(
         tontine_: &mut Tontine,
         // The address of the member who is withdrawing.
         withdrawer: address,
@@ -786,7 +786,7 @@ module addr::tontine05 {
         });
     }
 
-    fun assert_in_tontine(tontine: &Tontine, caller: &address) {
+    inline fun assert_in_tontine(tontine: &Tontine, caller: &address) {
         let (in_tontine, _i) = vector::index_of(&tontine.config.members, caller);
         assert!(in_tontine, error::invalid_state(E_CALLER_NOT_IN_TONTINE));
     }
@@ -959,7 +959,7 @@ module addr::tontine05 {
 
     // Assert that the overall status is in the allowed list. If not, return an error
     // corresponding to what status it is in.
-    fun assert_overall_status(tontine: Object<Tontine>, allowed: vector<u8>) acquires Tontine {
+    inline fun assert_overall_status(tontine: Object<Tontine>, allowed: vector<u8>) acquires Tontine {
         let status = get_overall_status(tontine);
 
         // This is a bit of a hack based on the fact that the status codes and the
@@ -969,7 +969,7 @@ module addr::tontine05 {
 
     // Assert that the member status is in the allowed list. If not, return an error
     // corresponding to what status it is in.
-    fun assert_member_status(tontine: Object<Tontine>, allowed: vector<u8>, member: address) acquires Tontine {
+    inline fun assert_member_status(tontine: Object<Tontine>, allowed: vector<u8>, member: address) acquires Tontine {
         let status = get_member_status(tontine, member);
 
         // This is a bit of a hack based on the fact that the status codes and the
