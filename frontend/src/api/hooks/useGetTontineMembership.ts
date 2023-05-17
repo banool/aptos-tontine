@@ -21,7 +21,7 @@ export function useGetTontineMembership(): UseQueryResult<TontineMembership[]> {
     ["tontineMembership", { account }, state.network_value],
     async () => {
       const res = await fetch(
-        `https://tontine-processor.dport.me/tontines/${account!.address}`,
+        `https://tontine-processor.dport.me/${state.network_name}/tontines/${account!.address}`,
       );
       const data = await res.json();
       return data;
