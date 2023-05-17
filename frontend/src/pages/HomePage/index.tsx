@@ -115,7 +115,7 @@ export const InfoComponent = () => {
           </Link>
         </Box>
         <Center>
-          <Image src={simpsonsImage} width="55%" alt="Simpsons Tontine" />
+          <Image src={simpsonsImage} maxHeight="320px" alt="Simpsons Tontine" />
         </Center>
         <Box p={3}>
           &mdash;{" "}
