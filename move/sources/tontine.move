@@ -1291,5 +1291,13 @@ module addr::tontine05 {
         execute_fallback(tontine);
         destroy(&creator, tontine);
     }
+
+    #[expected_failure(abort_code = 196675, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_destroy_locked(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_lock_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        destroy(&creator, tontine);
+    }
+
 }
 
