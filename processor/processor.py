@@ -90,6 +90,7 @@ def run_processor(config: Config):
                     state_additions,
                     state_updates,
                     state_deletions,
+                    total_tontine_deletions,
                 ) = parse(
                     transaction,
                     config.tontine_module_address,
@@ -144,6 +145,16 @@ def run_processor(config: Config):
                             next_version=current_transaction_version + 1,
                         )
                     )
+
+                    # Delete anything related to items in total_tontine_deletions.
+                    if total_tontine_deletions:
+                        for address in total_tontine_deletions:
+                            session.query(TontineMembership).filter_by(
+                                tontine_address=address,
+                            ).delete()
+                            session.query(TontineState).filter_by(
+                                tontine_address=address,
+                            ).delete()
 
                 if (current_transaction_version % 1000) == 0:
                     logging.info(

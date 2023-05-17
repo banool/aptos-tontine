@@ -30,7 +30,8 @@ class TontineStateUpdate:
 
 
 # This function parses transactions and outputs create, update, and delete operations
-# for both the TontineMembership and TontineState tables.
+# for both the TontineMembership and TontineState tables. If the tontine is deleted
+# it outputs a delete operation for everything related to that tontine.
 def parse(
     transaction: transaction_pb2.Transaction,
     tontine_module_address: str,
@@ -42,6 +43,7 @@ def parse(
     typing.List[TontineState],
     typing.List[TontineStateUpdate],
     typing.List[str],
+    typing.List[str],
 ]:
     membership_additions = []
     membership_updates = []
@@ -51,10 +53,12 @@ def parse(
     state_updates = []
     state_deletions = []
 
+    total_tontine_deletions = []
+
     # Custom filtering
     # Here we filter out all transactions that are not of type TRANSACTION_TYPE_USER
     if transaction.type != transaction_pb2.Transaction.TRANSACTION_TYPE_USER:
-        return ([], [], [], [], [], [])
+        return ([], [], [], [], [], [], [])
 
     user_transaction = transaction.user
     for event in user_transaction.events:
@@ -124,6 +128,16 @@ def parse(
         ):
             state_deletions.append(tontine_address)
 
+    # Look for tontine deletions.
+    if (
+        user_transaction.request.payload.entry_function_payload.entry_function_id_str
+        == f"{tontine_module_address}::{tontine_module_name}::destroy"
+    ):
+        data = json.loads(
+            user_transaction.request.payload.entry_function_payload.arguments[0]
+        )
+        total_tontine_deletions.append(standardize_address(data["inner"]))
+
     return (
         membership_additions,
         membership_updates,
@@ -131,6 +145,7 @@ def parse(
         state_additions,
         state_updates,
         state_deletions,
+        total_tontine_deletions,
     )
 
 
