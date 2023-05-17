@@ -13,17 +13,17 @@ export const moduleLocations = {
   mainnet: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine04",
+    name: "tontine05",
   },
   testnet: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine04",
+    name: "tontine05",
   },
   local: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine04",
+    name: "tontine05",
   },
 };
 
@@ -79,7 +79,6 @@ export const MEMBER_STATUS_CLAIMED_FUNDS: number = 134;
 export const MEMBER_STATUS_NEVER_CLAIMED_FUNDS: number = 135;
 
 export const OVERALL_STATUS_STAGING: number = 64;
-export const OVERALL_STATUS_CANCELLED: number = 65;
 export const OVERALL_STATUS_CAN_BE_LOCKED: number = 66;
 export const OVERALL_STATUS_LOCKED: number = 67;
 export const OVERALL_STATUS_FUNDS_CLAIMABLE: number = 68;

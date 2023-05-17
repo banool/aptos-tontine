@@ -43,6 +43,7 @@ import {
   checkIn,
   claim,
   contribute,
+  destroy,
   executeFallback,
   leave,
   lock,
@@ -53,7 +54,6 @@ import { useGetOverallStatus } from "../api/hooks/useGetOverallStatus";
 import {
   MEMBER_STATUS_CAN_CLAIM_FUNDS,
   MEMBER_STATUS_STILL_ELIGIBLE,
-  OVERALL_STATUS_CANCELLED,
   OVERALL_STATUS_CAN_BE_LOCKED,
   OVERALL_STATUS_FALLBACK_EXECUTED,
   OVERALL_STATUS_FUNDS_CLAIMABLE,
@@ -133,7 +133,7 @@ export function TontineActions({
     ? tontineData?.config.per_member_amount_octa - contributionAmount
     : 0;
 
-  const onTxnSuccess = ({
+  const onTxnSuccess = async ({
     title,
     description,
   }: {
@@ -145,12 +145,16 @@ export function TontineActions({
       title,
       description,
       status: "success",
-      duration: 5000,
+      duration: 4000,
       isClosable: true,
     });
     // Invalidate the account resource query so it will be refetched.
+    // Also invalidate the tontine membership query so the sidebar will be reloaded.
     // https://tanstack.com/query/v4/docs/react/guides/query-invalidation
+    // We wait 1.5 seconds for the indexer processor to pick up the transaction.
+    await new Promise((r) => setTimeout(r, 1500));
     queryClient.invalidateQueries({ queryKey: activeTontine.tontine_address });
+    queryClient.invalidateQueries({ queryKey: "tontineMembership" });
   };
 
   const onTxnFailure = ({
@@ -184,7 +188,7 @@ export function TontineActions({
         amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
-      onTxnSuccess({
+      await onTxnSuccess({
         title: "Contributed funds to tontine",
         description: `Successfully contributed ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
@@ -214,7 +218,7 @@ export function TontineActions({
         amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
-      onTxnSuccess({
+      await onTxnSuccess({
         title: "Withdrew funds from tontine",
         description: `Successfully withdrew ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
@@ -236,19 +240,11 @@ export function TontineActions({
     memberStatus === undefined;
   var baseTooltip = baseDisabled ? "Loading..." : null;
 
-  if (overallStatus === OVERALL_STATUS_CANCELLED) {
-    baseDisabled = true;
-    baseTooltip = "Tontine is cancelled.";
-  }
-
   var contributeDisabled = baseDisabled;
   var contributeTooltip = baseTooltip;
   if (tontineData?.locked_time_secs > 0) {
     contributeDisabled = true;
     contributeTooltip = "Tontine is locked.";
-  } else if (overallStatus === OVERALL_STATUS_CANCELLED) {
-    contributeDisabled = true;
-    contributeTooltip = "The tontine is cancelled.";
   }
 
   var withdrawDisabled = baseDisabled;
@@ -259,11 +255,9 @@ export function TontineActions({
   } else if (contributionAmount === 0) {
     withdrawDisabled = true;
     withdrawTooltip = "You have not contributed anything yet.";
-  } else if (overallStatus === OVERALL_STATUS_CANCELLED) {
-    withdrawDisabled = false;
-    withdrawTooltip = null;
   }
 
+  // This is only shown if the user is not the creator of the tontine.
   var leaveDisabled = baseDisabled;
   var leaveTooltip = baseTooltip;
   if (tontineData?.locked_time_secs > 0) {
@@ -275,10 +269,32 @@ export function TontineActions({
   } else if (activeTontine.is_creator) {
     leaveDisabled = false;
     leaveTooltip =
-      "You are the creator of this tontine, leaving will cancel the tontine.";
-  } else if (overallStatus === OVERALL_STATUS_CANCELLED) {
-    withdrawDisabled = false;
-    withdrawTooltip = null;
+      "Destroying the tontine will return any funds members have contributed.";
+  }
+
+  // This is only shown if the user is the creator of the tontine.
+  var destroyDisabled = baseDisabled;
+  var destroyTooltip = baseTooltip;
+  if (memberStatus === undefined) {
+    destroyDisabled = true;
+    destroyTooltip = "You are not a member of this tontine.";
+  } else if (
+    overallStatus === OVERALL_STATUS_STAGING ||
+    overallStatus === OVERALL_STATUS_CAN_BE_LOCKED
+  ) {
+    destroyDisabled = false;
+    destroyTooltip =
+      "Destroying the tontine will return any funds members have contributed.";
+  } else if (
+    overallStatus === OVERALL_STATUS_FUNDS_CLAIMED ||
+    overallStatus === OVERALL_STATUS_FALLBACK_EXECUTED
+  ) {
+    destroyDisabled = false;
+    destroyTooltip =
+      "You will get a gas refund for destroying this finished tontine.";
+  } else if (tontineData?.locked_time_secs > 0) {
+    destroyDisabled = true;
+    destroyTooltip = "Tontine is locked.";
   }
 
   var lockDisabled = baseDisabled;
@@ -507,36 +523,70 @@ export function TontineActions({
               Withdraw
             </Button>
           </Tooltip>
-          <Tooltip label={leaveTooltip}>
-            <Button
-              colorScheme="blue"
-              isDisabled={leaveDisabled}
-              onClick={async () => {
-                setWaitingForTransaction(true);
-                try {
-                  await leave(
-                    signAndSubmitTransaction,
-                    moduleId,
-                    state.network_value,
-                    activeTontine.tontine_address,
-                  );
-                  onTxnSuccess({
-                    title: "Left the tontine",
-                    description: "You have successfully left the tontine.",
-                  });
-                } catch (e) {
-                  onTxnFailure({
-                    title: "Failed to leave the tontine",
-                    description: `Failed to leave the tontine: ${e}`,
-                  });
-                } finally {
-                  setWaitingForTransaction(false);
-                }
-              }}
-            >
-              Leave
-            </Button>
-          </Tooltip>
+          {!activeTontine.is_creator ? (
+            <Tooltip label={leaveTooltip}>
+              <Button
+                colorScheme="blue"
+                isDisabled={leaveDisabled}
+                onClick={async () => {
+                  setWaitingForTransaction(true);
+                  try {
+                    await leave(
+                      signAndSubmitTransaction,
+                      moduleId,
+                      state.network_value,
+                      activeTontine.tontine_address,
+                    );
+                    await onTxnSuccess({
+                      title: "Left the tontine",
+                      description: "You have successfully left the tontine.",
+                    });
+                  } catch (e) {
+                    onTxnFailure({
+                      title: "Failed to leave the tontine",
+                      description: `Failed to leave the tontine: ${e}`,
+                    });
+                  } finally {
+                    setWaitingForTransaction(false);
+                  }
+                }}
+              >
+                Leave
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip label={destroyTooltip}>
+              <Button
+                colorScheme="blue"
+                isDisabled={destroyDisabled}
+                onClick={async () => {
+                  setWaitingForTransaction(true);
+                  try {
+                    await destroy(
+                      signAndSubmitTransaction,
+                      moduleId,
+                      state.network_value,
+                      activeTontine.tontine_address,
+                    );
+                    await onTxnSuccess({
+                      title: "Destroyed the tontine",
+                      description:
+                        "You have successfully destroyed the tontine.",
+                    });
+                  } catch (e) {
+                    onTxnFailure({
+                      title: "Failed to destroy the tontine",
+                      description: `Failed to destroy the tontine: ${e}`,
+                    });
+                  } finally {
+                    setWaitingForTransaction(false);
+                  }
+                }}
+              >
+                Destroy
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip label={lockTooltip}>
             <Button
               colorScheme="blue"
@@ -550,7 +600,7 @@ export function TontineActions({
                     state.network_value,
                     activeTontine.tontine_address,
                   );
-                  onTxnSuccess({
+                  await onTxnSuccess({
                     title: "Locked the tontine",
                     description: "You have successfully locked the tontine.",
                   });
@@ -580,7 +630,7 @@ export function TontineActions({
                     state.network_value,
                     activeTontine.tontine_address,
                   );
-                  onTxnSuccess({
+                  await onTxnSuccess({
                     title: "Checked in",
                     description: "You have successfully checked in.",
                   });
@@ -610,7 +660,7 @@ export function TontineActions({
                     state.network_value,
                     activeTontine.tontine_address,
                   );
-                  onTxnSuccess({
+                  await onTxnSuccess({
                     title: "Claimed funds",
                     description:
                       "You have successfully claimed the funds of the tontine.",
@@ -641,7 +691,7 @@ export function TontineActions({
                     state.network_value,
                     activeTontine.tontine_address,
                   );
-                  onTxnSuccess({
+                  await onTxnSuccess({
                     title: "Executed fallback",
                     description:
                       "Successfully executed the fallback of the tontine.",

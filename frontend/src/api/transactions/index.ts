@@ -121,6 +121,21 @@ export async function executeFallback(
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }
 
+export async function destroy(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  tontineAddress: string,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::destroy`,
+    type_arguments: [],
+    arguments: [tontineAddress],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
+
 export async function create(
   signAndSubmitTransaction: (txn: any) => Promise<any>,
   moduleId: string,
