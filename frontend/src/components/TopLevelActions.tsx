@@ -29,7 +29,6 @@ import {
   simpleMapArrayToMap,
   validateAptString,
 } from "../utils";
-import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
@@ -56,11 +55,13 @@ import {
   OVERALL_STATUS_STAGING,
 } from "../constants";
 import { useQueryClient } from "react-query";
+import { useGetAccountResources } from "../api/hooks/useGetAccountResources";
+import { ActiveTontine } from "../pages/HomePage";
 
-export function TontineActions({
+export function TopLevelActions({
   activeTontine,
 }: {
-  activeTontine: TontineMembership;
+  activeTontine: ActiveTontine;
 }) {
   const [state, _] = useGlobalState();
   const queryClient = useQueryClient();
@@ -85,38 +86,50 @@ export function TontineActions({
   const [amountAptFormField, setAmountAptFormField] = useState("");
   const [waitingForTransaction, setWaitingForTransaction] = useState(false);
 
-  const { isLoading, accountResource, error } = useGetAccountResource(
-    activeTontine.tontine_address,
-    `${moduleId}::Tontine`,
-    { additionalQueryCriteria: waitingForTransaction },
+  const { data } = useGetAccountResources(activeTontine.address, {
+    additionalQueryCriteria: waitingForTransaction,
+  });
+
+  const tontineResource = data?.find(
+    (resource) => resource.type === `${moduleId}::Tontine`,
   );
 
-  const tontineData = accountResource?.data as any;
+  const objectResource = data?.find(
+    (resource) => resource.type === "0x1::object::ObjectCore",
+  );
+
+  const tontineData = tontineResource?.data as any;
+  const objectData = objectResource?.data as any;
+
+  const creatorAddress = objectData?.owner;
+
+  // Whether the user of this UI is the creator of this tontine.
+  const userIsCreator = creatorAddress == account?.address;
 
   const {
     isLoading: memberStatusesIsLoading,
     data: memberStatusesRaw,
     error: memberStatusesError,
-  } = useGetMemberStatuses(activeTontine.tontine_address, {
-    enabled: accountResource !== undefined,
-    additionalQueryCriteria: accountResource,
+  } = useGetMemberStatuses(activeTontine.address, {
+    enabled: tontineResource !== undefined,
+    additionalQueryCriteria: tontineResource,
   });
 
   const {
     isLoading: overallStatusIsLoading,
     data: overallStatusRaw,
     error: overallStatusError,
-  } = useGetOverallStatus(activeTontine.tontine_address, {
-    enabled: accountResource !== undefined,
-    additionalQueryCriteria: accountResource,
+  } = useGetOverallStatus(activeTontine.address, {
+    enabled: tontineResource !== undefined,
+    additionalQueryCriteria: tontineResource,
   });
 
   const memberStatusesData = memberStatusesRaw?.data
     ? simpleMapArrayToMap(memberStatusesRaw.data)
     : undefined;
-  const memberStatus: number | undefined = memberStatusesData?.get(
-    account!.address,
-  );
+  const memberStatus: number | undefined = account
+    ? memberStatusesData?.get(account!.address)
+    : undefined;
   const overallStatus: number | undefined = overallStatusRaw;
 
   const contributionAmount =
@@ -148,7 +161,7 @@ export function TontineActions({
     // https://tanstack.com/query/v4/docs/react/guides/query-invalidation
     // We wait 1.5 seconds for the indexer processor to pick up the transaction.
     await new Promise((r) => setTimeout(r, 1500));
-    queryClient.invalidateQueries({ queryKey: activeTontine.tontine_address });
+    queryClient.invalidateQueries({ queryKey: activeTontine.address });
     queryClient.invalidateQueries({ queryKey: "tontineMembership" });
   };
 
@@ -179,7 +192,7 @@ export function TontineActions({
         signAndSubmitTransaction,
         moduleId,
         state.network_value,
-        activeTontine.tontine_address,
+        activeTontine.address,
         amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
@@ -209,7 +222,7 @@ export function TontineActions({
         signAndSubmitTransaction,
         moduleId,
         state.network_value,
-        activeTontine.tontine_address,
+        activeTontine.address,
         amountOcta,
       );
       // If we get here, the transaction was committed successfully on chain.
@@ -261,7 +274,7 @@ export function TontineActions({
   } else if (memberStatus === undefined) {
     leaveDisabled = true;
     leaveTooltip = "You are not a member of this tontine.";
-  } else if (activeTontine.is_creator) {
+  } else if (userIsCreator) {
     leaveDisabled = false;
     leaveTooltip =
       "Destroying the tontine will return any funds members have contributed.";
@@ -538,7 +551,7 @@ export function TontineActions({
               Withdraw
             </Button>
           </Tooltip>
-          {!activeTontine.is_creator ? (
+          {!userIsCreator ? (
             <Tooltip label={leaveTooltip}>
               <Button
                 colorScheme="blue"
@@ -550,7 +563,7 @@ export function TontineActions({
                       signAndSubmitTransaction,
                       moduleId,
                       state.network_value,
-                      activeTontine.tontine_address,
+                      activeTontine.address,
                     );
                     await onTxnSuccess({
                       title: "Left the tontine",
@@ -581,7 +594,7 @@ export function TontineActions({
                       signAndSubmitTransaction,
                       moduleId,
                       state.network_value,
-                      activeTontine.tontine_address,
+                      activeTontine.address,
                     );
                     await onTxnSuccess({
                       title: "Destroyed the tontine",
@@ -613,7 +626,7 @@ export function TontineActions({
                     signAndSubmitTransaction,
                     moduleId,
                     state.network_value,
-                    activeTontine.tontine_address,
+                    activeTontine.address,
                   );
                   await onTxnSuccess({
                     title: "Locked the tontine",
@@ -643,7 +656,7 @@ export function TontineActions({
                     signAndSubmitTransaction,
                     moduleId,
                     state.network_value,
-                    activeTontine.tontine_address,
+                    activeTontine.address,
                   );
                   await onTxnSuccess({
                     title: "Checked in",
@@ -673,7 +686,7 @@ export function TontineActions({
                     signAndSubmitTransaction,
                     moduleId,
                     state.network_value,
-                    activeTontine.tontine_address,
+                    activeTontine.address,
                   );
                   await onTxnSuccess({
                     title: "Claimed funds",
@@ -704,7 +717,7 @@ export function TontineActions({
                     signAndSubmitTransaction,
                     moduleId,
                     state.network_value,
-                    activeTontine.tontine_address,
+                    activeTontine.address,
                   );
                   await onTxnSuccess({
                     title: "Executed fallback",

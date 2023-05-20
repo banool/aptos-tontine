@@ -23,6 +23,7 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { useState } from "react";
 import { isValidAccountAddress } from "../utils";
+import { ActiveTontine } from "../pages/HomePage";
 
 export function HomeActions({
   showingCreateComponent,
@@ -31,7 +32,7 @@ export function HomeActions({
 }: {
   showingCreateComponent: boolean;
   setShowingCreateComponent: (b: boolean) => void;
-  setActiveTontine: (tontine: TontineMembership | null) => void;
+  setActiveTontine: (tontine: ActiveTontine | null) => void;
 }) {
   const { connected } = useWallet();
 
@@ -80,12 +81,7 @@ export function HomeActions({
             isDisabled={!isValidAccountAddress(addressToOpen)}
             onClick={() => {
               // Only tontine_address matters here.
-              setActiveTontine({
-                tontine_address: addressToOpen,
-                is_creator: false,
-                has_ever_contributed: false,
-                state: 0,
-              });
+              setActiveTontine({ address: addressToOpen });
               enterAddressModalOnClose();
             }}
             mr={3}

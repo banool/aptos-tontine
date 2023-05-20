@@ -1,22 +1,20 @@
 import { Box, CloseButton, Flex, Spacer, Text } from "@chakra-ui/react";
-import { TontineMembership } from "../api/hooks/useGetTontineMembership";
-import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
-import { getModuleId, useGlobalState } from "../GlobalState";
-import { TontineActions } from "./TontineActions";
+import { TopLevelActions } from "./TopLevelActions";
 import { TontineInfo } from "./TontineInfo";
+import { ActiveTontine } from "../pages/HomePage";
 
 export function TontineDisplay({
   activeTontine,
   setActiveTontine,
 }: {
-  activeTontine: TontineMembership;
-  setActiveTontine: (tontine: TontineMembership | null) => void;
+  activeTontine: ActiveTontine;
+  setActiveTontine: (tontine: ActiveTontine | null) => void;
 }) {
   return (
     <Box>
       <Box>
         <Flex alignItems={"center"}>
-          <TontineActions activeTontine={activeTontine} />
+          <TopLevelActions activeTontine={activeTontine} />
           <Spacer />
           <Box paddingRight={5}>
             <CloseButton

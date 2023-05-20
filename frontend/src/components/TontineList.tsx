@@ -8,14 +8,15 @@ import {
 } from "../api/hooks/useGetTontineMembership";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { TontineListCard } from "./TontineListCard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ActiveTontine } from "../pages/HomePage";
 
 export function TontineList({
   activeTontine,
   setActiveTontine,
 }: {
-  activeTontine: TontineMembership | null;
-  setActiveTontine: (a: TontineMembership | null) => void;
+  activeTontine: ActiveTontine | null;
+  setActiveTontine: (a: ActiveTontine | null) => void;
 }) {
   const { connected } = useWallet();
 
@@ -24,9 +25,6 @@ export function TontineList({
     isLoading: tontineMembershipIsLoading,
     error: tontineMembershipError,
   } = useGetTontineMembership();
-
-  const [hasSetTontineOnFirstLoad, setHasSetTontineOnFirstLoad] =
-    useState(false);
 
   var body;
   if (!connected) {
@@ -67,12 +65,15 @@ export function TontineList({
     for (let i = 0; i < tontineMembershipData!.length; i++) {
       const tontine = tontineMembershipData![i];
       const card = (
-        <Box key={i} onClick={() => setActiveTontine(tontine)}>
+        <Box
+          key={i}
+          onClick={() => setActiveTontine({ address: tontine.tontine_address })}
+        >
           <TontineListCard
             tontine={tontine}
             active={
               activeTontine !== null &&
-              activeTontine.tontine_address === tontine.tontine_address
+              activeTontine.address === tontine.tontine_address
             }
           />
         </Box>

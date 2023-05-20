@@ -2,7 +2,6 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { Box, Flex, Text, useToast } from "@chakra-ui/react";
 import { TontineList } from "../../components/TontineList";
 import { useEffect, useState } from "react";
-import { TontineMembership } from "../../api/hooks/useGetTontineMembership";
 import { TontineDisplay } from "../../components/TontineDisplay";
 import { useGlobalState } from "../../GlobalState";
 import { HomeActions } from "../../components/HomeActions";
@@ -10,17 +9,21 @@ import { CreateTontine } from "../../components/CreateTontine";
 import { Explanation } from "../../components/Explanation";
 import { useSearchParams } from "react-router-dom";
 
+export type ActiveTontine = {
+  address: string;
+};
+
 export const HomePage = () => {
   const { network } = useWallet();
   const [state, _] = useGlobalState();
 
-  // This state tracks which tontine we're actively viewing.
-  const [activeTontine, setActiveTontine] = useState<TontineMembership | null>(
+  // This state tracks which tontine we're actively viewing. The value we store here
+  // is the tontine address.
+  const [activeTontine, setActiveTontine] = useState<ActiveTontine | null>(
     null,
   );
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const toast = useToast();
 
   const [hasSetTontineOnFirstLoad, setHasSetTontineOnFirstLoad] =
     useState(false);
@@ -31,7 +34,6 @@ export const HomePage = () => {
     searchParams.forEach((value, key) => {
       params.push([key, value]);
     });
-
     if (!hasSetTontineOnFirstLoad) {
       // There is a tontine in the URL and we haven't done the initial load, load up
       // a tontine if possible based on the url.
@@ -41,17 +43,8 @@ export const HomePage = () => {
         // There is no tontine in the URL. Do nothing.
         return;
       }
-      // Set the active tontine to the address we have. The only thing we have right
-      // now is the tontine address so we use dummy data for the rest. Fortunately we
-      // don't need anything but the tontine address to display the main tontine info
-      // actions + info component, only the sidebar. Once the user connects their
-      // wallet we will enrich those components with the relevant info.
-      setActiveTontine({
-        tontine_address: urlTontineAddress,
-        is_creator: false,
-        has_ever_contributed: false,
-        state: 0,
-      });
+      // Set the active tontine to the address we have.
+      setActiveTontine({ address: urlTontineAddress });
     } else {
       // We've already done the initial load. From this point on we update the URL
       // based on activeTontine and not vice versa.
@@ -61,7 +54,7 @@ export const HomePage = () => {
         setSearchParams(searchParams);
       } else {
         // There is an active tontine, update the URL.
-        searchParams.set("tontine", activeTontine.tontine_address);
+        searchParams.set("tontine", activeTontine.address);
         setSearchParams(searchParams);
       }
     }
@@ -71,7 +64,6 @@ export const HomePage = () => {
     setActiveTontine,
     searchParams,
     setSearchParams,
-    toast,
   ]);
 
   const [showingCreateComponent, setShowingCreateComponent] = useState(false);
