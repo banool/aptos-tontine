@@ -8,6 +8,11 @@ import {
   Tbody,
   Td,
   Tooltip,
+  IconButton,
+  useToast,
+  Spinner,
+  Box,
+  Button,
 } from "@chakra-ui/react";
 import {
   getShortAddress,
@@ -26,22 +31,40 @@ import {
   OVERALL_STATUS_FUNDS_NEVER_CLAIMED,
 } from "../constants";
 import { SelectableTooltip } from "./SelectableTooltip";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { DeleteIcon } from "@chakra-ui/icons";
+import { useState } from "react";
+import { addMember, removeMember } from "../api/transactions";
+import { getModuleId, useGlobalState } from "../GlobalState";
+import { ActiveTontine } from "../pages/HomePage";
+import { onTxnFailure, onTxnSuccess } from "../api/helpers";
+import { useQueryClient } from "react-query";
 
-export function ContributionTable({
+export function MemberInfoTable({
   tontineData,
-  objectData,
+  activeTontine,
   overallStatus,
   memberStatusesData,
   isLocked,
   userAddress,
+  creatorAddress,
 }: {
   tontineData: any;
-  objectData: any;
+  activeTontine: ActiveTontine;
   overallStatus: number | undefined;
   memberStatusesData: Map<string, number> | undefined;
   isLocked: boolean;
   userAddress: string | undefined;
+  creatorAddress: string;
 }) {
+  const [state, _] = useGlobalState();
+  const { connected, signAndSubmitTransaction } = useWallet();
+  const moduleId = getModuleId(state);
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const [waitingForTransaction, setWaitingForTransaction] = useState(false);
+
   const members = tontineData.config.members;
   const { data: names } = useGetAnsNames(() => members);
   const contributions: Map<string, any> = simpleMapArrayToMap(
@@ -60,6 +83,8 @@ export function ContributionTable({
     overallStatus === OVERALL_STATUS_FUNDS_CLAIMED ||
     overallStatus === OVERALL_STATUS_FUNDS_NEVER_CLAIMED ||
     overallStatus === OVERALL_STATUS_FALLBACK_EXECUTED;
+  const userIsCreator = creatorAddress === userAddress;
+  const editingPossible = userIsCreator && connected;
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -90,7 +115,13 @@ export function ContributionTable({
   ) : (
     <Text>Ready</Text>
   );
-  var fifthColumnHeader = isLocked ? <Text>Still eligible</Text> : null;
+
+  var fifthColumnHeader = null;
+  if (isLocked) {
+    fifthColumnHeader = <Text>Still eligible</Text>;
+  } else if (editingPossible) {
+    fifthColumnHeader = <Text>Edit</Text>;
+  }
 
   var rows = [];
   for (var i = 0; i < members.length; i++) {
@@ -116,7 +147,7 @@ export function ContributionTable({
       memberText += " (you)";
     }
     /*
-    if (isCreator) {
+    if (userIsCreator) {
       memberText += " (creator)";
     }
     */
@@ -179,6 +210,52 @@ export function ContributionTable({
         text = "Failed to claim";
       }
       fifthColumnComponent = <Text>{text}</Text>;
+    } else if (editingPossible) {
+      // The user is the creator and the tontine is not locked yet and the wallet is
+      // connected. Show a button for removing this user from the tontine.
+      fifthColumnComponent = (
+        <Tooltip
+          label={
+            isUser
+              ? "Cannot remove yourself from the tontine, you must instead destroy the entire tontine."
+              : "Remove this member from the tontine."
+          }
+        >
+          <IconButton
+            // TODO use a better icon here
+            icon={waitingForTransaction ? <Spinner /> : <DeleteIcon />}
+            aria-label="Remove member"
+            isDisabled={isUser}
+            onClick={async () => {
+              setWaitingForTransaction(true);
+              try {
+                await removeMember(
+                  signAndSubmitTransaction,
+                  moduleId,
+                  state.network_value,
+                  activeTontine.address,
+                  memberAddress,
+                );
+                await onTxnSuccess({
+                  toast,
+                  queryClient,
+                  activeTontine,
+                  title: "Removed member",
+                  description: `Successfully removed ${memberAddress} from the tontine.`,
+                });
+              } catch (e) {
+                onTxnFailure({
+                  toast,
+                  title: "Failed to remove member",
+                  description: `Failed to remove member: ${e}`,
+                });
+              } finally {
+                setWaitingForTransaction(false);
+              }
+            }}
+          />
+        </Tooltip>
+      );
     }
 
     const row = (
