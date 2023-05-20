@@ -1,16 +1,7 @@
 import React from "react";
-import {
-  Box,
-  Center,
-  Flex,
-  Heading,
-  IconButton,
-  Spacer,
-  Text,
-} from "@chakra-ui/react";
+import { Box, Flex, Heading, IconButton } from "@chakra-ui/react";
 import { ColorModeSwitcher } from "../components/ColorModeSwitcher";
 import NetworkSelect from "../components/NetworkSelect";
-import { useGetAptToUsd } from "../api/hooks/useGetAptToUsd";
 import { ConnectWalletComponent } from "../components/ConnectWalletComponent";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { DisconnectWalletComponent } from "../components/DisconnectWalletComponent";
@@ -59,6 +50,8 @@ export default function MainLayout({ children }: LayoutProps) {
     </Text>
   );
   */
+
+  // headerMiddle = <Image src={aptosLogo} maxHeight="30px" alt="Aptos logo" />;
 
   let walletConnectComponent = null;
   if (connected) {

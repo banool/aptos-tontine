@@ -1,26 +1,50 @@
 import {
   Box,
   Heading,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
   Tooltip,
   Flex,
   Button,
   Spacer,
   Link,
   CloseButton,
+  useDisclosure,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
 } from "@chakra-ui/react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { TontineMembership } from "../api/hooks/useGetTontineMembership";
+import { useState } from "react";
+import { isValidAccountAddress } from "../utils";
 
 export function HomeActions({
   showingCreateComponent,
   setShowingCreateComponent,
+  setActiveTontine,
 }: {
   showingCreateComponent: boolean;
   setShowingCreateComponent: (b: boolean) => void;
+  setActiveTontine: (tontine: TontineMembership | null) => void;
 }) {
   const { connected } = useWallet();
 
   var createDisabled = !connected || showingCreateComponent;
-  var createTooltip = connected ? null : "Please connect your wallet.";
+  var createTooltip = connected ? null : "You must connect your wallet.";
+
+  const {
+    isOpen: enterAddressModalIsOpen,
+    onOpen: enterAddressModalOnOpen,
+    onClose: enterAddressModalOnClose,
+  } = useDisclosure();
+
+  const [addressToOpen, setAddressToOpen] = useState("");
 
   var closeButtonComponent = (
     <>
@@ -33,6 +57,52 @@ export function HomeActions({
         />
       </Box>
     </>
+  );
+
+  const enterAddressModal = (
+    <Modal isOpen={enterAddressModalIsOpen} onClose={enterAddressModalOnClose}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Contribute</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <FormControl paddingBottom={5} isRequired>
+            <FormLabel>Tontine address</FormLabel>
+            <Input
+              value={addressToOpen}
+              onChange={(e) => setAddressToOpen(e.target.value)}
+            />
+          </FormControl>
+        </ModalBody>
+        <ModalFooter>
+          <Button
+            colorScheme="blue"
+            isDisabled={!isValidAccountAddress(addressToOpen)}
+            onClick={() => {
+              // Only tontine_address matters here.
+              setActiveTontine({
+                tontine_address: addressToOpen,
+                is_creator: false,
+                has_ever_contributed: false,
+                state: 0,
+              });
+              enterAddressModalOnClose();
+            }}
+            mr={3}
+          >
+            View
+          </Button>
+          <Button
+            onClick={() => {
+              setAddressToOpen("");
+              enterAddressModalOnClose();
+            }}
+          >
+            Close
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 
   return (
@@ -49,12 +119,16 @@ export function HomeActions({
               Create a Tontine
             </Button>
           </Tooltip>
+          <Button colorScheme="blue" onClick={() => enterAddressModalOnOpen()}>
+            View a Tontine
+          </Button>
           <Link href="https://github.com/banool/aptos-tontine" target="_blank">
             <Button colorScheme="blue">Learn More</Button>
           </Link>
           {showingCreateComponent ? closeButtonComponent : null}
         </Flex>
       </Box>
+      {enterAddressModal}
     </Box>
   );
 }

@@ -1,11 +1,4 @@
-import {
-  Box,
-  Text,
-  Spinner,
-  Heading,
-  Tooltip,
-  useToast,
-} from "@chakra-ui/react";
+import { Box, Text, Spinner, Heading, Tooltip } from "@chakra-ui/react";
 import {
   BASIC_TONTINE_STATE_COMPLETE,
   BASIC_TONTINE_STATE_LOCKED,
@@ -15,8 +8,7 @@ import {
 } from "../api/hooks/useGetTontineMembership";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { TontineListCard } from "./TontineListCard";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 
 export function TontineList({
   activeTontine,
@@ -26,8 +18,6 @@ export function TontineList({
   setActiveTontine: (a: TontineMembership | null) => void;
 }) {
   const { connected } = useWallet();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const toast = useToast();
 
   const {
     data: tontineMembershipData,
@@ -37,67 +27,6 @@ export function TontineList({
 
   const [hasSetTontineOnFirstLoad, setHasSetTontineOnFirstLoad] =
     useState(false);
-
-  // This hook manages keeping the tontine and URL state in sync.
-  useEffect(() => {
-    const params: any = [];
-    searchParams.forEach((value, key) => {
-      params.push([key, value]);
-    });
-
-    // Don't do anything until we've loaded up the list of tontines.
-    if (tontineMembershipData === undefined) {
-      return;
-    }
-
-    if (!hasSetTontineOnFirstLoad) {
-      // There is a tontine in the URL and we haven't done the initial load, load up
-      // a tontine if possible based on the url.
-      setHasSetTontineOnFirstLoad(true);
-      const urlTontineAddress = searchParams.get("tontine");
-      if (urlTontineAddress === null) {
-        // There is no tontine in the URL. Do nothing.
-        return;
-      }
-      // Try to load up the tontine from the URL.
-      const tontine = tontineMembershipData.find(
-        (t) => t.tontine_address === urlTontineAddress,
-      );
-      if (tontine !== undefined) {
-        setActiveTontine(tontine);
-      } else {
-        console.log("Failed to find tontine ", urlTontineAddress);
-        toast({
-          title: "Error loading tontine",
-          description: `You are not a creator / member / invitee of tontine ${urlTontineAddress} or it does not exist`,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
-        setActiveTontine(null);
-      }
-    } else {
-      // We've already done the initial load. From this point on we update the URL
-      // based on activeTontine and not vice versa.
-      if (activeTontine === null) {
-        // There is no active tontine, remove the tontine from the URL.
-        searchParams.delete("tontine");
-        setSearchParams(searchParams);
-      } else {
-        // There is an active tontine, update the URL.
-        searchParams.set("tontine", activeTontine.tontine_address);
-        setSearchParams(searchParams);
-      }
-    }
-  }, [
-    tontineMembershipData,
-    hasSetTontineOnFirstLoad,
-    activeTontine,
-    setActiveTontine,
-    searchParams,
-    setSearchParams,
-    toast,
-  ]);
 
   var body;
   if (!connected) {

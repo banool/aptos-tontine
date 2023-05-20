@@ -5,11 +5,10 @@ import {
   CardBody,
   CardHeader,
   Heading,
-  Tooltip,
   useColorMode,
 } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
-import { getShortAddress, interleave } from "../utils";
+import { getShortAddress } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { SelectableTooltip } from "./SelectableTooltip";

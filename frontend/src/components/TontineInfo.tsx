@@ -5,7 +5,6 @@ import {
   Flex,
   TableContainer,
   Table,
-  TableCaption,
   Thead,
   Tr,
   Th,
@@ -15,11 +14,9 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
-import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { useState } from "react";
 import {
-  getContributionAmount,
   getDurationPretty,
   getShortAddress,
   octaToAptNormal,
@@ -123,7 +120,7 @@ export function TontineInfo({
             overallStatus={overallStatus}
             memberStatusesData={memberStatusesData}
             isLocked={isLocked}
-            userAddress={account!.address}
+            userAddress={account?.address}
           />
         </Box>
         <Heading size="md">Config</Heading>
@@ -135,7 +132,7 @@ export function TontineInfo({
             overallStatus={overallStatus}
             memberStatusesData={memberStatusesData}
             isLocked={isLocked}
-            userAddress={account!.address}
+            userAddress={account?.address}
           />
         </Box>
       </Box>
@@ -171,7 +168,7 @@ export function ContributionTable({
   overallStatus: number | undefined;
   memberStatusesData: Map<string, number> | undefined;
   isLocked: boolean;
-  userAddress: string;
+  userAddress: string | undefined;
 }) {
   const members = tontineData.config.members;
   const { data: names } = useGetAnsNames(() => members);
@@ -362,7 +359,7 @@ export function ConfigTable({
   overallStatus: number | undefined;
   memberStatusesData: Map<string, number> | undefined;
   isLocked: boolean;
-  userAddress: string;
+  userAddress: string | undefined;
 }) {
   const creatorAddress = objectData.owner;
   const { data: names } = useGetAnsNames(() => [creatorAddress]);

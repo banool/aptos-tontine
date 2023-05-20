@@ -58,6 +58,7 @@ export async function getMemberStatuses(
     type_arguments: [],
     arguments: [tontineAddress],
   };
+  console.log("getMemberStatuses payload", JSON.stringify(payload));
   const response = await client.view(payload);
   return response[0] as any;
 }
@@ -73,6 +74,7 @@ export async function getOverallStatus(
     type_arguments: [],
     arguments: [tontineAddress],
   };
+  console.log("getOverallStatus payload", JSON.stringify(payload));
   const response = await client.view(payload);
   return response[0] as any;
 }

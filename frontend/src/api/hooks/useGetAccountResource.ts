@@ -23,6 +23,8 @@ export function useGetAccountResource(
 ): useGetAccountResourceResponse {
   const [state, _setState] = useGlobalState();
 
+  console.log(JSON.stringify(state));
+
   const accountResourcesResult = useQuery<Types.MoveResource, ResponseError>(
     [
       "accountResource",

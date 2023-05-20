@@ -23,21 +23,15 @@ import {
 } from "@chakra-ui/react";
 import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import {
-  OCTA_NEGATIVE_EXPONENT,
-  OCTA_POSITIVE_EXPONENT,
   aptToOcta,
   getContributionAmount,
-  getShortAddress,
-  interleave,
-  octaToApt,
   octaToAptNormal,
   simpleMapArrayToMap,
   validateAptString,
 } from "../utils";
 import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { getAnsName } from "../api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import {
   checkIn,
@@ -125,9 +119,10 @@ export function TontineActions({
   );
   const overallStatus: number | undefined = overallStatusRaw;
 
-  const contributionAmount = tontineData
-    ? getContributionAmount(tontineData.contributions, account!.address)
-    : 0;
+  const contributionAmount =
+    tontineData && account
+      ? getContributionAmount(tontineData.contributions, account.address)
+      : 0;
 
   const remainingContribution = tontineData
     ? tontineData?.config.per_member_amount_octa - contributionAmount
@@ -368,6 +363,26 @@ export function TontineActions({
     contributeTooltip = message;
     withdrawDisabled = true;
     withdrawTooltip = message;
+    leaveDisabled = true;
+    leaveTooltip = message;
+    lockDisabled = true;
+    lockTooltip = message;
+    checkInDisabled = true;
+    checkInTooltip = message;
+    claimDisabled = true;
+    claimTooltip = message;
+    executeFallbackDisabled = true;
+    executeFallbackTooltip = message;
+  }
+
+  if (account === null) {
+    const message = "You must connect your wallet.";
+    contributeDisabled = true;
+    contributeTooltip = message;
+    withdrawDisabled = true;
+    withdrawTooltip = message;
+    destroyDisabled = true;
+    destroyTooltip = message;
     leaveDisabled = true;
     leaveTooltip = message;
     lockDisabled = true;
