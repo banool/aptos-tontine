@@ -21,7 +21,6 @@ import {
   NumberInputField,
   Spacer,
 } from "@chakra-ui/react";
-import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import {
   aptToOcta,
   getContributionAmount,
@@ -57,8 +56,9 @@ import {
 import { useQueryClient } from "react-query";
 import { useGetAccountResources } from "../api/hooks/useGetAccountResources";
 import { ActiveTontine } from "../pages/HomePage";
+import { onTxnFailure, onTxnSuccess } from "../api/helpers";
 
-export function TopLevelActions({
+export function PrimaryActions({
   activeTontine,
 }: {
   activeTontine: ActiveTontine;
@@ -104,7 +104,7 @@ export function TopLevelActions({
   const creatorAddress = objectData?.owner;
 
   // Whether the user of this UI is the creator of this tontine.
-  const userIsCreator = creatorAddress == account?.address;
+  const userIsCreator = creatorAddress === account?.address;
 
   const {
     isLoading: memberStatusesIsLoading,
@@ -141,47 +141,6 @@ export function TopLevelActions({
     ? tontineData?.config.per_member_amount_octa - contributionAmount
     : 0;
 
-  const onTxnSuccess = async ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => {
-    // Indicate that the transaction was successful.
-    toast({
-      title,
-      description,
-      status: "success",
-      duration: 4000,
-      isClosable: true,
-    });
-    // Invalidate the account resource query so it will be refetched.
-    // Also invalidate the tontine membership query so the sidebar will be reloaded.
-    // https://tanstack.com/query/v4/docs/react/guides/query-invalidation
-    // We wait 1.5 seconds for the indexer processor to pick up the transaction.
-    await new Promise((r) => setTimeout(r, 1500));
-    queryClient.invalidateQueries({ queryKey: activeTontine.address });
-    queryClient.invalidateQueries({ queryKey: "tontineMembership" });
-  };
-
-  const onTxnFailure = ({
-    title,
-    description,
-  }: {
-    title: string;
-    description: string;
-  }) => {
-    // Indicate that the transaction failed.
-    toast({
-      title,
-      description,
-      status: "error",
-      duration: 7000,
-      isClosable: true,
-    });
-  };
-
   const handleContribute = async () => {
     setWaitingForTransaction(true);
     const amountOcta = aptToOcta(parseFloat(amountAptFormField));
@@ -197,11 +156,15 @@ export function TopLevelActions({
       );
       // If we get here, the transaction was committed successfully on chain.
       await onTxnSuccess({
+        toast,
+        queryClient,
+        activeTontine,
         title: "Contributed funds to tontine",
         description: `Successfully contributed ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
     } catch (e) {
       onTxnFailure({
+        toast,
         title: "Failed to contribute to tontine",
         description: "Error: " + e,
       });
@@ -227,11 +190,15 @@ export function TopLevelActions({
       );
       // If we get here, the transaction was committed successfully on chain.
       await onTxnSuccess({
+        toast,
+        queryClient,
+        activeTontine,
         title: "Withdrew funds from tontine",
         description: `Successfully withdrew ${amountAptFormField} APT (${amountOcta}) OCTA)`,
       });
     } catch (e) {
       onTxnFailure({
+        toast,
         title: "Failed to withdraw from tontine",
         description: "Error: " + e,
       });
@@ -566,11 +533,15 @@ export function TopLevelActions({
                       activeTontine.address,
                     );
                     await onTxnSuccess({
+                      toast,
+                      queryClient,
+                      activeTontine,
                       title: "Left the tontine",
                       description: "You have successfully left the tontine.",
                     });
                   } catch (e) {
                     onTxnFailure({
+                      toast,
                       title: "Failed to leave the tontine",
                       description: `Failed to leave the tontine: ${e}`,
                     });
@@ -597,12 +568,16 @@ export function TopLevelActions({
                       activeTontine.address,
                     );
                     await onTxnSuccess({
+                      toast,
+                      queryClient,
+                      activeTontine,
                       title: "Destroyed the tontine",
                       description:
                         "You have successfully destroyed the tontine.",
                     });
                   } catch (e) {
                     onTxnFailure({
+                      toast,
                       title: "Failed to destroy the tontine",
                       description: `Failed to destroy the tontine: ${e}`,
                     });
@@ -629,11 +604,15 @@ export function TopLevelActions({
                     activeTontine.address,
                   );
                   await onTxnSuccess({
+                    toast,
+                    queryClient,
+                    activeTontine,
                     title: "Locked the tontine",
                     description: "You have successfully locked the tontine.",
                   });
                 } catch (e) {
                   onTxnFailure({
+                    toast,
                     title: "Failed to lock the tontine",
                     description: `Failed to lock the tontine: ${e}`,
                   });
@@ -659,11 +638,16 @@ export function TopLevelActions({
                     activeTontine.address,
                   );
                   await onTxnSuccess({
+                    toast,
+                    queryClient,
+                    activeTontine,
+
                     title: "Checked in",
                     description: "You have successfully checked in.",
                   });
                 } catch (e) {
                   onTxnFailure({
+                    toast,
                     title: "Failed to check in",
                     description: `Failed to check in: ${e}`,
                   });
@@ -689,12 +673,16 @@ export function TopLevelActions({
                     activeTontine.address,
                   );
                   await onTxnSuccess({
+                    toast,
+                    queryClient,
+                    activeTontine,
                     title: "Claimed funds",
                     description:
                       "You have successfully claimed the funds of the tontine.",
                   });
                 } catch (e) {
                   onTxnFailure({
+                    toast,
                     title: "Failed to claim funds",
                     description: `Failed to claim the funds of the tontine: ${e}`,
                   });
@@ -720,12 +708,16 @@ export function TopLevelActions({
                     activeTontine.address,
                   );
                   await onTxnSuccess({
+                    toast,
+                    queryClient,
+                    activeTontine,
                     title: "Executed fallback",
                     description:
                       "Successfully executed the fallback of the tontine.",
                   });
                 } catch (e) {
                   onTxnFailure({
+                    toast,
                     title: "Failed to execute fallback",
                     description: `Failed to execute the fallback of the tontine: ${e}`,
                   });
