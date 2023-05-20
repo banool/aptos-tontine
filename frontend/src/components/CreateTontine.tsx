@@ -21,6 +21,7 @@ import {
   Stack,
   Text,
   Textarea,
+  Tooltip,
   VStack,
   useToast,
 } from "@chakra-ui/react";
@@ -265,7 +266,15 @@ export function CreateTontine({}: {}) {
                         formik.errors.invitees.some((error) => error))
                     }
                   >
-                    <FormLabel>Invitees</FormLabel>
+                    <FormLabel>
+                      {"Invitees "}
+
+                      <sup>
+                        <Tooltip label="You may enter either account addresses or ANS names.">
+                          ⓘ
+                        </Tooltip>
+                      </sup>
+                    </FormLabel>
                     {formik.values.invitees.map((invitee, index) => {
                       var helper;
                       const ansNameLookup = ansNameLookups?.find(

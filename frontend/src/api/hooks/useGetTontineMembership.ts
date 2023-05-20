@@ -6,6 +6,8 @@ export const BASIC_TONTINE_STATE_STAGING = 0;
 export const BASIC_TONTINE_STATE_LOCKED = 1;
 export const BASIC_TONTINE_STATE_COMPLETE = -1;
 
+export const TONTINE_MEMBERSHIP_QUERY_KEY = "tontineMembership";
+
 export type TontineMembership = {
   tontine_address: string;
   is_creator: boolean;
@@ -18,7 +20,7 @@ export function useGetTontineMembership(): UseQueryResult<TontineMembership[]> {
   const { account } = useWallet();
 
   return useQuery<TontineMembership[]>(
-    ["tontineMembership", { account }, state.network_value],
+    [TONTINE_MEMBERSHIP_QUERY_KEY, { account }, state.network_value],
     async () => {
       const res = await fetch(
         `https://tontine-processor.dport.me/${state.network_name}/tontines/${

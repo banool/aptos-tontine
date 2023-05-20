@@ -1,7 +1,8 @@
-import { Box, CloseButton, Flex, Spacer, Text } from "@chakra-ui/react";
-import { TopLevelActions } from "./TopLevelActions";
+import { Box, CloseButton, Flex, Spacer, Switch, Text } from "@chakra-ui/react";
+import { PrimaryActions } from "./PrimaryActions";
 import { TontineInfo } from "./TontineInfo";
 import { ActiveTontine } from "../pages/HomePage";
+import { useState } from "react";
 
 export function TontineDisplay({
   activeTontine,
@@ -10,12 +11,23 @@ export function TontineDisplay({
   activeTontine: ActiveTontine;
   setActiveTontine: (tontine: ActiveTontine | null) => void;
 }) {
+  const [showRaw, setShowRaw] = useState(false);
+
   return (
     <Box>
       <Box>
-        <Flex alignItems={"center"}>
-          <TopLevelActions activeTontine={activeTontine} />
+        <Flex alignItems="center">
+          <PrimaryActions activeTontine={activeTontine} />
           <Spacer />
+          <Flex marginRight={4} alignItems="center">
+            <Text paddingEnd={2}>Raw</Text>
+            <Switch
+              size="lg"
+              colorScheme="blue"
+              isChecked={showRaw}
+              onChange={() => setShowRaw((before) => !before)}
+            />
+          </Flex>
           <Box paddingRight={5}>
             <CloseButton
               size="md"
@@ -26,7 +38,7 @@ export function TontineDisplay({
         </Flex>
       </Box>
       <Box p={3}>
-        <TontineInfo activeTontine={activeTontine} />
+        <TontineInfo activeTontine={activeTontine} showRaw={showRaw} />
       </Box>
     </Box>
   );

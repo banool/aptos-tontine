@@ -13,6 +13,65 @@ async function submitTransaction(
   });
 }
 
+export async function create(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  description: string,
+  invitees: string[],
+  checkInFrequencySecs: number,
+  claimWindowSecs: number,
+  contributionAmountOcta: number,
+  fallbackPolicy: number,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::create`,
+    type_arguments: [],
+    arguments: [
+      description,
+      invitees,
+      checkInFrequencySecs,
+      claimWindowSecs,
+      contributionAmountOcta,
+      fallbackPolicy,
+    ],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
+
+export async function inviteMember(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  tontineAddress: string,
+  memberAddress: string,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::invite_member`,
+    type_arguments: [],
+    arguments: [tontineAddress, memberAddress],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
+
+export async function removeMember(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  tontineAddress: string,
+  memberAddress: string,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::remove_member`,
+    type_arguments: [],
+    arguments: [tontineAddress, memberAddress],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
+
 export async function contribute(
   signAndSubmitTransaction: (txn: any) => Promise<any>,
   moduleId: string,
@@ -132,33 +191,6 @@ export async function destroy(
     function: `${moduleId}::destroy`,
     type_arguments: [],
     arguments: [tontineAddress],
-  };
-  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
-}
-
-export async function create(
-  signAndSubmitTransaction: (txn: any) => Promise<any>,
-  moduleId: string,
-  fullnodeUrl: string,
-  description: string,
-  invitees: string[],
-  checkInFrequencySecs: number,
-  claimWindowSecs: number,
-  contributionAmountOcta: number,
-  fallbackPolicy: number,
-) {
-  const transaction = {
-    type: "entry_function_payload",
-    function: `${moduleId}::create`,
-    type_arguments: [],
-    arguments: [
-      description,
-      invitees,
-      checkInFrequencySecs,
-      claimWindowSecs,
-      contributionAmountOcta,
-      fallbackPolicy,
-    ],
   };
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }

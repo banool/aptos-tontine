@@ -38,6 +38,8 @@ export function TontineList({
         <Text>Connect your wallet</Text>
       </Box>
     );
+  } else if (tontineMembershipError) {
+    body = <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>;
   } else if (tontineMembershipIsLoading) {
     body = (
       <Box
@@ -49,8 +51,6 @@ export function TontineList({
         <Spinner />
       </Box>
     );
-  } else if (tontineMembershipError) {
-    body = <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>;
   } else {
     var stagingCreatorCards = [];
     var stagingJoinedCards = [];

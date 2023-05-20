@@ -11,8 +11,6 @@ import {
   IconButton,
   useToast,
   Spinner,
-  Box,
-  Button,
 } from "@chakra-ui/react";
 import {
   getShortAddress,
@@ -34,7 +32,7 @@ import { SelectableTooltip } from "./SelectableTooltip";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { DeleteIcon } from "@chakra-ui/icons";
 import { useState } from "react";
-import { addMember, removeMember } from "../api/transactions";
+import { removeMember } from "../api/transactions";
 import { getModuleId, useGlobalState } from "../GlobalState";
 import { ActiveTontine } from "../pages/HomePage";
 import { onTxnFailure, onTxnSuccess } from "../api/helpers";

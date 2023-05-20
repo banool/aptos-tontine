@@ -20,7 +20,6 @@ import {
   Input,
 } from "@chakra-ui/react";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { TontineMembership } from "../api/hooks/useGetTontineMembership";
 import { useState } from "react";
 import { isValidAccountAddress } from "../utils";
 import { ActiveTontine } from "../pages/HomePage";
@@ -60,11 +59,13 @@ export function HomeActions({
     </>
   );
 
+  // TOOD: Make this wider so the address fits nicely.
+  // TODO: Make it so pressing enter works, like onSubmit.
   const enterAddressModal = (
     <Modal isOpen={enterAddressModalIsOpen} onClose={enterAddressModalOnClose}>
       <ModalOverlay />
       <ModalContent>
-        <ModalHeader>Contribute</ModalHeader>
+        <ModalHeader>View Tontine</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <FormControl paddingBottom={5} isRequired>
@@ -115,9 +116,14 @@ export function HomeActions({
               Create a Tontine
             </Button>
           </Tooltip>
-          <Button colorScheme="blue" onClick={() => enterAddressModalOnOpen()}>
-            View a Tontine
-          </Button>
+          <Tooltip label="Use this to view information about tontines of which you're not a member.">
+            <Button
+              colorScheme="blue"
+              onClick={() => enterAddressModalOnOpen()}
+            >
+              View a Tontine
+            </Button>
+          </Tooltip>
           <Link href="https://github.com/banool/aptos-tontine" target="_blank">
             <Button colorScheme="blue">Learn More</Button>
           </Link>

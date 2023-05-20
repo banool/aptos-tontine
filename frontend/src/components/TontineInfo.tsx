@@ -7,23 +7,27 @@ import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useGetAccountResources } from "../api/hooks/useGetAccountResources";
 import { useGetMemberStatuses } from "../api/hooks/useGetMemberStatuses";
 import { useGetOverallStatus } from "../api/hooks/useGetOverallStatus";
-import { ContributionTable } from "./ContributionTable";
+import { MemberInfoTable } from "./MemberInfoTable";
 import { ConfigTable } from "./ConfigTable";
 import { ActiveTontine } from "../pages/HomePage";
+import { InviteMemberButton } from "./InviteMemberButton";
 
 export function TontineInfo({
   activeTontine,
+  showRaw,
 }: {
   activeTontine: ActiveTontine;
+  showRaw: boolean;
 }) {
   const [state, _] = useGlobalState();
-  const [showRaw, setShowRaw] = useState(false);
 
   const { account } = useWallet();
 
   const moduleId = getModuleId(state);
 
-  const { data } = useGetAccountResources(activeTontine.address);
+  const { data, error, isLoading } = useGetAccountResources(
+    activeTontine.address,
+  );
 
   const tontineResource = data?.find(
     (resource) => resource.type === `${moduleId}::Tontine`,
@@ -33,11 +37,13 @@ export function TontineInfo({
     (resource) => resource.type === "0x1::object::ObjectCore",
   );
 
-  const resourcesLoaded =
+  const resourcesFound =
     tontineResource !== undefined && objectResource !== undefined;
 
   const tontineData = tontineResource?.data as any;
   const objectData = objectResource?.data as any;
+
+  const creatorAddress = objectData?.owner;
 
   const {
     isLoading: memberStatusesIsLoading,
@@ -63,7 +69,7 @@ export function TontineInfo({
   const isLocked = tontineData?.locked_time_secs > 0;
 
   var body;
-  if (!resourcesLoaded) {
+  if (isLoading) {
     body = (
       <Box
         display="flex"
@@ -72,6 +78,28 @@ export function TontineInfo({
         height="100%"
       >
         <Text>Loading...</Text>
+      </Box>
+    );
+  } else if (error !== null) {
+    body = (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100%"
+      >
+        <Text>{`Error loading tontine information: ${error}`}</Text>
+      </Box>
+    );
+  } else if (!resourcesFound) {
+    body = (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100%"
+      >
+        <Text>A valid tontine could not be found at this address.</Text>
       </Box>
     );
   } else if (showRaw) {
@@ -85,16 +113,19 @@ export function TontineInfo({
       <Box p={5}>
         <Heading size="md">Member Info</Heading>
         <Box p={6} paddingLeft={3} paddingRight={3}>
-          <ContributionTable
+          <MemberInfoTable
             tontineData={tontineData}
-            objectData={objectData}
+            activeTontine={activeTontine}
             overallStatus={overallStatus}
             memberStatusesData={memberStatusesData}
             isLocked={isLocked}
             userAddress={account?.address}
+            creatorAddress={creatorAddress!}
           />
+          <Box p={5}>
+            <InviteMemberButton activeTontine={activeTontine} />
+          </Box>
         </Box>
-        // todo show add / remove members
         <Heading size="md">Config</Heading>
         <Box p={6} paddingLeft={3} paddingRight={3}>
           <ConfigTable
@@ -113,15 +144,6 @@ export function TontineInfo({
 
   return (
     <Box paddingLeft={3} paddingRight={3}>
-      <Flex justifyContent="end" alignItems="center" paddingBottom={3}>
-        <Text paddingEnd={2}>Raw</Text>
-        <Switch
-          size="lg"
-          colorScheme="blue"
-          isChecked={showRaw}
-          onChange={() => setShowRaw((before) => !before)}
-        />
-      </Flex>
       {body}
     </Box>
   );

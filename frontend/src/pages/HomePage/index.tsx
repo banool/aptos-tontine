@@ -71,7 +71,7 @@ export const HomePage = () => {
   // Don't show the main content if the wallet and site networks mismatch.
   if (
     network &&
-    network.name.toLowerCase() !== state.network_name.toLowerCase()
+    !network.name.toLowerCase().startsWith(state.network_name.toLowerCase())
   ) {
     return (
       <Box
