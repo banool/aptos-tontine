@@ -67,6 +67,15 @@ module addr::tontine05 {
     /// Tried to perform an action that the creator is not allowed to take.
     const E_CALLER_IS_CREATOR: u64 = 15;
 
+    /// Tried to add a member to the tontine but they were already in it.
+    const E_MEMBER_ALREADY_IN_TONTINE: u64 = 16;
+
+    /// Tried to remove a member from the tontine but they're not in it.
+    const E_MEMBER_NOT_IN_TONTINE: u64 = 17;
+
+    /// The creator tried to remove themselves from the tontine.
+    const E_CREATOR_CANNOT_REMOVE_SELF: u64 = 18;
+
     /*
     ** Error codes corresponding to the overall status of a tontine. We use these when
     ** the tontine is one of these states and that state is invalid for the intended
@@ -303,7 +312,9 @@ module addr::tontine05 {
 
     struct MemberLeftEvent has store, drop {
         member: address,
-        creator_left: bool,
+        // Will be false if the member left of their own accord, true if the creator of
+        // the tontine removed them.
+        removed: bool,
     }
 
     struct TontineLockedEvent has store, drop {}
@@ -450,6 +461,125 @@ module addr::tontine05 {
         object::object_from_constructor_ref(constructor_ref)
     }
 
+    // Invite a new member to a staging tontine.
+    public entry fun invite_member(
+        caller: &signer,
+        tontine: Object<Tontine>,
+        member: address,
+    ) acquires Tontine {
+        let caller_addr = signer::address_of(caller);
+        let creator_addr = object::owner(tontine);
+
+        // Assert the caller is the creator of the tontine.
+        assert!(caller_addr == creator_addr, error::invalid_argument(E_CALLER_IS_NOT_CREATOR));
+
+        // Assert the tontine is in a valid state.
+        let allowed = vector::empty();
+        vector::push_back(&mut allowed, OVERALL_STATUS_STAGING);
+        vector::push_back(&mut allowed, OVERALL_STATUS_CAN_BE_LOCKED);
+        assert_overall_status(tontine, allowed);
+
+        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Assert the member isn't already in the tontine.
+        assert!(!vector::contains(&tontine_.config.members, &member), error::invalid_argument(E_MEMBER_ALREADY_IN_TONTINE));
+
+        // Add the member to the tontine.
+        vector::push_back(&mut tontine_.config.members, member);
+
+        // Emit an event for the member being added.
+        event::emit_event(&mut tontine_.member_invited_events, MemberInvitedEvent {
+            member: caller_addr,
+        });
+
+        // Require reconfirmation from all members of the tontine besides the creator.
+        let len = vector::length(&tontine_.config.members);
+        let i = 0;
+        while (i < len) {
+            let member = vector::borrow(&tontine_.config.members, i);
+            if (member != &caller_addr) {
+                if (!vector::contains(&tontine_.reconfirmation_required, member)) {
+                    vector::push_back(&mut tontine_.reconfirmation_required, *member);
+                };
+            };
+            i = i + 1;
+        };
+    }
+
+    // Remove a member from a staging tontine.
+    public entry fun remove_member(
+        caller: &signer,
+        tontine: Object<Tontine>,
+        member: address,
+    ) acquires Tontine {
+        let caller_addr = signer::address_of(caller);
+        let creator_addr = object::owner(tontine);
+
+        // Assert the caller is the creator of the tontine.
+        assert!(caller_addr == creator_addr, error::invalid_argument(E_CALLER_IS_NOT_CREATOR));
+
+        // Assert the creator isn't trying to remove themself.
+        assert!(caller_addr != member, error::invalid_argument(E_CREATOR_CANNOT_REMOVE_SELF));
+
+        // Assert the tontine is in a valid state.
+        let allowed = vector::empty();
+        vector::push_back(&mut allowed, OVERALL_STATUS_STAGING);
+        vector::push_back(&mut allowed, OVERALL_STATUS_CAN_BE_LOCKED);
+        assert_overall_status(tontine, allowed);
+
+        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Assert the member is in the tontine.
+        let (in_tontine, i) = vector::index_of(&tontine_.config.members, &member);
+        assert!(in_tontine, error::invalid_argument(E_MEMBER_NOT_IN_TONTINE));
+
+        // Remove the member from the tontine.
+        vector::remove(&mut tontine_.config.members, i);
+
+        // Return any funds this person might have contributed.
+        withdraw_all(tontine_, member);
+
+        // Emit an event for the member being removed.
+        event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
+            member: caller_addr,
+            removed: true,
+        });
+
+        // Require reconfirmation from all members of the tontine besides the creator.
+        let len = vector::length(&tontine_.config.members);
+        let i = 0;
+        while (i < len) {
+            let member = vector::borrow(&tontine_.config.members, i);
+            if (member != &caller_addr) {
+                if (!vector::contains(&tontine_.reconfirmation_required, member)) {
+                    vector::push_back(&mut tontine_.reconfirmation_required, *member);
+                };
+            };
+            i = i + 1;
+        };
+    }
+
+    public entry fun reconfirm(
+        caller: &signer,
+        tontine: Object<Tontine>,
+    ) acquires Tontine {
+        let caller_addr = signer::address_of(caller);
+
+        // Assert the tontine is in a valid state.
+        let allowed = vector::empty();
+        vector::push_back(&mut allowed, OVERALL_STATUS_STAGING);
+        assert_overall_status(tontine, allowed);
+
+        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Remove the member from the list of members who need to reconfirm if they are
+        // in the list.
+        let (must_reconfirm, i) = vector::index_of(&tontine_.reconfirmation_required, &caller_addr);
+        if (must_reconfirm) {
+            vector::remove(&mut tontine_.reconfirmation_required, i);
+        };
+    }
+
     public entry fun contribute(
         caller: &signer,
         tontine: Object<Tontine>,
@@ -461,12 +591,14 @@ module addr::tontine05 {
         vector::push_back(&mut allowed, OVERALL_STATUS_CAN_BE_LOCKED);
         assert_overall_status(tontine, allowed);
 
-        // Withdraw the contribution from the contributor's account.
-        let contribution = coin::withdraw<AptosCoin>(caller, contribution_amount_octa);
-
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
+        // Assert the caller is a member of the tontine.
         let caller_addr = signer::address_of(caller);
+        assert_in_tontine(tontine_, &caller_addr);
+
+        // Withdraw the contribution from the contributor's account.
+        let contribution = coin::withdraw<AptosCoin>(caller, contribution_amount_octa);
 
         if (simple_map::contains_key(&tontine_.contributions, &caller_addr)) {
             // This contributor has already contributed, merge this new contribution
@@ -533,7 +665,7 @@ module addr::tontine05 {
         // Emit an event.
         event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
             member: caller_addr,
-            creator_left: caller_addr == object::object_address(&tontine),
+            removed: false,
         });
     }
 
@@ -567,6 +699,7 @@ module addr::tontine05 {
     ) acquires Tontine {
         // Assert the caller is still allowed to check in.
         let caller_addr = signer::address_of(caller);
+
         let allowed = vector::empty();
         vector::push_back(&mut allowed, MEMBER_STATUS_STILL_ELIGIBLE);
         // Let the user keep checking in if they want, even though they could just
@@ -591,10 +724,11 @@ module addr::tontine05 {
         caller: &signer,
         tontine: Object<Tontine>,
     ) acquires Tontine {
+        let caller_addr = signer::address_of(caller);
+
         // Assert the caller is allowed to claim the funds. The underlying member status
         // function will only ever return MEMBER_STATUS_CAN_CLAIM_FUNDS if only a single
         // member remains and we're within the claim window.
-        let caller_addr = signer::address_of(caller);
         let allowed = vector::empty();
         vector::push_back(&mut allowed, MEMBER_STATUS_CAN_CLAIM_FUNDS);
         assert_member_status(tontine, allowed, caller_addr);
@@ -977,6 +1111,10 @@ module addr::tontine05 {
         assert!(vector::contains(&allowed, &status), error::invalid_state((status as u64)));
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                     Tests                                     //
+    ///////////////////////////////////////////////////////////////////////////////////
+
     #[test_only]
     fun create_test_account(
         mint_cap: &MintCapability<AptosCoin>,
@@ -1035,15 +1173,15 @@ module addr::tontine05 {
         let friend1_addr = signer::address_of(friend1);
         let friend2_addr = signer::address_of(friend2);
 
-        let members = vector::empty();
-        vector::push_back(&mut members, friend1_addr);
-        vector::push_back(&mut members, friend2_addr);
+        let invitees = vector::empty();
+        vector::push_back(&mut invitees, friend1_addr);
+        vector::push_back(&mut invitees, friend2_addr);
 
-        create_(creator, string::utf8(b"test"), members, CHECK_IN_FREQUENCY_SECS, CLAIM_WINDOW_SECS, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS)
+        create_(creator, string::utf8(b"test"), invitees, CHECK_IN_FREQUENCY_SECS, CLAIM_WINDOW_SECS, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS)
     }
 
     #[test_only]
-    fun create_and_lock_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
+    fun create_and_contribute_to_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
         let tontine = create_tontine(creator, friend1, friend2, aptos_framework);
 
         let creator_addr = signer::address_of(creator);
@@ -1072,14 +1210,18 @@ module addr::tontine05 {
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &creator_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend2_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
 
-        // See that the tontine can't be locked.
-        // TODO ^, might be easier to do in its own test.
-
         // See that the tontine overall status indicates it can be locked once
         // all members contribute.
         contribute(creator, tontine, 10000);
         contribute(friend2, tontine, 10000);
         assert!(get_overall_status(tontine) == OVERALL_STATUS_CAN_BE_LOCKED, 0);
+
+        tontine
+    }
+
+    #[test_only]
+    fun create_and_lock_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(creator, friend1, friend2, aptos_framework);
 
         // See that we can lock the tontine now, and anyone in the tontine can do it.
         lock(friend1, tontine);
@@ -1167,6 +1309,9 @@ module addr::tontine05 {
         create_tontine(&creator, &friend1, &friend2, &aptos_framework);
     }
 
+    // TODO: Confirm that these failure codes are what we expect.
+    // https://github.com/aptos-labs/aptos-core/issues/8182
+
     #[expected_failure(abort_code = 65551, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_creator_cannot_leave(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
@@ -1176,14 +1321,178 @@ module addr::tontine05 {
         leave(&creator, tontine);
     }
 
-    // TODO: Confirm that these failure codes are what we expect.
-    // https://github.com/aptos-labs/aptos-core/issues/8182
+    // Confirm that when a member leaves they get their funds back.
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_funds_returned_after_leaving(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        let friend1_addr = signer::address_of(&friend1);
+
+        let before = coin::balance<AptosCoin>(friend1_addr);
+
+        contribute(&friend1, tontine, 10000);
+
+        leave(&friend1, tontine);
+
+        let after = coin::balance<AptosCoin>(friend1_addr);
+
+        assert!(before == after, 0);
+    }
+
+    // Confirm that when a member is removed they get their funds back.
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_funds_returned_after_being_removed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        let friend1_addr = signer::address_of(&friend1);
+
+        let before = coin::balance<AptosCoin>(friend1_addr);
+
+        contribute(&friend1, tontine, 10000);
+
+        remove_member(&creator, tontine, friend1_addr);
+
+        let after = coin::balance<AptosCoin>(friend1_addr);
+
+        assert!(before == after, 0);
+    }
+
+    #[expected_failure(abort_code = 65550, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_only_creator_can_invite_members(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Try to add someone to the tontine as someone other than the creator. This
+        // should fail.
+        invite_member(&friend1, tontine, @0x987654321);
+    }
+
+    #[expected_failure(abort_code = 65550, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_only_creator_can_remove_members(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Try to add someone to the tontine as someone other than the creator. This
+        // should fail.
+        let friend2_addr = signer::address_of(&friend2);
+        remove_member(&friend1, tontine, friend2_addr);
+    }
+
+    // Assert the creator can add back a member they removed.
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_add_remove_member(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let friend2_addr = signer::address_of(&friend2);
+        remove_member(&creator, tontine, friend2_addr);
+        invite_member(&creator, tontine, friend2_addr);
+    }
+
+    #[expected_failure(abort_code = 65554, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_creator_cannot_remove_self(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let creator_addr = signer::address_of(&creator);
+        remove_member(&creator, tontine, creator_addr);
+    }
+
+    #[expected_failure(abort_code = 65553, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_remove_member_not_in_tontine(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        remove_member(&creator, tontine, @0x987654321);
+    }
+
+    #[expected_failure(abort_code = 65552, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_invite_member_twice(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let friend2_addr = signer::address_of(&friend2);
+        invite_member(&creator, tontine, friend2_addr);
+    }
 
     #[expected_failure(abort_code = 196672, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_lock_until_all_contributed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
         lock(&friend1, tontine);
+    }
+
+    #[expected_failure(abort_code = 196672, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_lock_after_invite_member(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Add a new member to the tontine.
+        invite_member(&creator, tontine, @0x987654321);
+
+        // Confirm that the tontine is no longer reported as lockable.
+        assert!(get_overall_status(tontine) == OVERALL_STATUS_STAGING, 0);
+
+        // Try to lock the tontine. This should fail.
+        lock(&friend1, tontine)
+    }
+
+    #[expected_failure(abort_code = 196672, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_lock_after_remove_member(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Remove a member from the tontine.
+        let friend1_addr = signer::address_of(&friend1);
+        remove_member(&creator, tontine, friend1_addr);
+
+        // Confirm that the tontine is no longer reported as lockable.
+        assert!(get_overall_status(tontine) == OVERALL_STATUS_STAGING, 0);
+
+        // Try to lock the tontine. This should fail.
+        lock(&friend2, tontine);
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_can_lock_after_reconfirmation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Remove a member from the tontine.
+        let friend1_addr = signer::address_of(&friend1);
+        remove_member(&creator, tontine, friend1_addr);
+
+        // Have the remaining members who need to reconfirm do so.
+        reconfirm(&friend2, tontine);
+
+        // Confirm that the tontine is reported as lockable.
+        assert!(get_overall_status(tontine) == OVERALL_STATUS_CAN_BE_LOCKED, 0);
+
+        // Lock the tontine.
+        lock(&friend2, tontine);
+    }
+
+    // Confirm that a member who was removed cannot lock the tontine even after
+    // reconfirmation fully occurred.
+    #[expected_failure(abort_code = 196617, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_lock_if_removed_after_reconfirmation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        // Remove new member from the tontine.
+        let friend1_addr = signer::address_of(&friend1);
+        remove_member(&creator, tontine, friend1_addr);
+
+        // Have the other members reconfirm.
+        reconfirm(&friend2, tontine);
+
+        // As friend1, who was removed, try to lock the tontine. This should fail.
+        lock(&friend1, tontine);
+    }
+
+    #[expected_failure(abort_code = 196617, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_cannot_contribute_after_leaving(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+
+        leave(&friend1, tontine);
+
+        // This should fail.
+        contribute(&friend1, tontine, 100);
     }
 
     #[expected_failure(abort_code = 196675, location = Self)]
@@ -1271,10 +1580,13 @@ module addr::tontine05 {
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_destroy_staging(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        destroy(&creator, tontine);
+    }
 
-        // Contribute some funds.
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
+    fun test_destroy_staging_contributed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
+        let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
         contribute(&friend1, tontine, 1000);
-
         destroy(&creator, tontine);
     }
 
@@ -1298,6 +1610,5 @@ module addr::tontine05 {
         let tontine = create_and_lock_tontine(&creator, &friend1, &friend2, &aptos_framework);
         destroy(&creator, tontine);
     }
-
 }
 
