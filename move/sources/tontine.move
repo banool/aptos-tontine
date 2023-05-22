@@ -10,16 +10,17 @@ module addr::tontine05 {
     use std::string;
     use std::vector;
     use std::timestamp::now_seconds;
+    //use aptos_framework::aptos_account;
+    use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::aptos_coin::AptosCoin;
-    use aptos_framework::coin::{Self, Coin};
+    use aptos_framework::coin::Self;
     use aptos_framework::event::{Self, EventHandle};
+    use aptos_framework::delegation_pool;
     use aptos_std::object::{Self, DeleteRef, Object};
-    use aptos_std::simple_map::{Self, SimpleMap};
+    use dport_std::simple_map::{Self, SimpleMap};
 
     #[test_only]
     use std::timestamp;
-    #[test_only]
-    use aptos_framework::account;
     #[test_only]
     use aptos_framework::coin::MintCapability;
 
@@ -41,40 +42,46 @@ module addr::tontine05 {
     /// `fallback_policy` was invalid.
     const E_CREATION_INVALID_FALLBACK_POLICY: u64 = 6;
 
+    /// There was no delegation pool at the specified address.
+    const E_CREATION_NO_DELEGATION_POOL: u64 = 7;
+
     /// Tried to interact with an account with no TontineStore.
-    const E_TONTINE_STORE_NOT_FOUND: u64 = 7;
+    const E_TONTINE_STORE_NOT_FOUND: u64 = 10;
 
     /// Tried to get a Tontine from a TontineStore but there was nothing found with
     /// the requested index.
-    const E_TONTINE_NOT_FOUND: u64 = 8;
+    const E_TONTINE_NOT_FOUND: u64 = 11;
 
     /// Tried to perform an action but the given caller is not in the tontine.
-    const E_CALLER_NOT_IN_TONTINE: u64 = 9;
+    const E_CALLER_NOT_IN_TONTINE: u64 = 12;
 
-    /// Tried to perform an action that relies on the member having contributed, but
-    /// they haven't done so yet or they have withdrawn their contribution.
-    const E_NO_CONTRIBUTION_MADE_YET: u64 = 11;
+    /// Tried to perform an action that relies on the member having contributed a
+    /// certain amount that they haven't actually contributed.
+    const E_INSUFFICIENT_CONTRIBUTION: u64 = 13;
 
     /// Tried to lock the tontine but the conditions aren't yet met.
-    const E_LOCK_CONDITIONS_NOT_MET: u64 = 12;
+    const E_LOCK_CONDITIONS_NOT_MET: u64 = 14;
 
     /// Tried to perform an action but the given tontine is locked.
-    const E_TONTINE_LOCKED: u64 = 13;
+    const E_TONTINE_LOCKED: u64 = 15;
 
     /// Tried to perform an action but the caller was not the creator.
-    const E_CALLER_IS_NOT_CREATOR: u64 = 14;
+    const E_CALLER_IS_NOT_CREATOR: u64 = 16;
 
     /// Tried to perform an action that the creator is not allowed to take.
-    const E_CALLER_IS_CREATOR: u64 = 15;
+    const E_CALLER_IS_CREATOR: u64 = 17;
 
     /// Tried to add a member to the tontine but they were already in it.
-    const E_MEMBER_ALREADY_IN_TONTINE: u64 = 16;
+    const E_MEMBER_ALREADY_IN_TONTINE: u64 = 18;
 
     /// Tried to remove a member from the tontine but they're not in it.
-    const E_MEMBER_NOT_IN_TONTINE: u64 = 17;
+    const E_MEMBER_NOT_IN_TONTINE: u64 = 19;
 
     /// The creator tried to remove themselves from the tontine.
-    const E_CREATOR_CANNOT_REMOVE_SELF: u64 = 18;
+    const E_CREATOR_CANNOT_REMOVE_SELF: u64 = 20;
+
+    /// The creator tried to contribute / withdraw zero OCTA.
+    const E_AMOUNT_ZERO: u64 = 21;
 
     /*
     ** Error codes corresponding to the overall status of a tontine. We use these when
@@ -204,23 +211,12 @@ module addr::tontine05 {
         /// The time (unixtime in secs) at which the tontine was created.
         creation_time_secs: u64,
 
-        /// The contributions from each member.
-        // TODO: Besides using the immutable upgrade policy, what is to stop me from
-        // adding an extension to this Move module that lets me withdraw all the funds?
-        contributions: SimpleMap<address, Coin<AptosCoin>>,
-
-        /// Any members who need to reconfirm membership in the tontine following a
-        /// membership or configuration change.
-        reconfirmation_required: vector<address>,
+        /// Data corresponding to each member.
+        member_data: SimpleMap<address, MemberData>,
 
         /// The time (unixtime in secs) at which the tontine was locked. This will be
         /// zero until the tontine is locked.
         locked_time_secs: u64,
-
-        /// The last time (unixtime in secs) each member of the tontine checked in.
-        /// This will be empty to begin with. Once the tontine is started, at that
-        /// moment we add a check in for all members.
-        last_check_in_times_secs: SimpleMap<address, u64>,
 
         /// The time (unixtime in secs) at which the funds in the tontine were claimed.
         /// This will be zero until that happens.
@@ -246,17 +242,16 @@ module addr::tontine05 {
         funds_claimed_events: EventHandle<FundsClaimedEvent>,
         fallback_executed_events: EventHandle<FallbackExecutedEvent>,
 
-        // Let's the creator delete the tontine once it is in a terminal state.
+        // The signer cap for the resource account that holds the funds of the tontine.
+        funds_account_signer_cap: SignerCapability,
+
+        // Lets the creator delete the tontine once it is in a terminal state.
         delete_ref: DeleteRef,
     }
 
     struct TontineConfig has store, drop {
         /// Vanity description for the tontine, this is only used for display purposes.
         description: string::String,
-
-        /// Who (where identity is defined by account address) is party to the tontine.
-        /// If the creator does not include their own address in this, we will add it.
-        members: vector<address>,
 
         /// How much each member must contribute to the tontine.
         per_member_amount_octa: u64,
@@ -272,11 +267,26 @@ module addr::tontine05 {
 
         /// What happens if the last-standing member of the tontine fails to claim the
         /// funds within the claim window.
-        fallback_policy: TontineFallbackPolicy
+        fallback_policy: TontineFallbackPolicy,
+
+        /// If set, the funds of the tontine will staked in this delegated staking pool
+        /// once the tontine is locked.
+        stake_with: Option<address>,
     }
 
-    const TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS: u8 = 0;
-    const TONTINE_FALLBACK_POLICY_DONATE: u8 = 1;
+    struct MemberData has store, drop {
+        /// How much in OCTA the member has contributed.
+        contributed_octa: u64,
+
+        /// Whether this member needs to reconfirm membership in the tontine following
+        /// a membership or configuration change.
+        reconfirmation_required: bool,
+
+        /// The last time (unixtime in secs) this member of the tontine checked in.
+        last_check_in_time_secs: Option<u64>,
+    }
+
+    const TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS: u8 = 1;
 
     /// This policy defines what happens if the last-standing member of the tontine
     /// fails to claim the funds within the claim window. The options are:
@@ -343,8 +353,9 @@ module addr::tontine05 {
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
+        stake_with: Option<address>,
     ) {
-        create_(caller, description, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy);
+        create_(caller, description, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy, stake_with);
     }
 
     /// This function is separate from the top level create function so we can use it
@@ -358,6 +369,7 @@ module addr::tontine05 {
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
+        stake_with: Option<address>,
     ): Object<Tontine> {
         // Assert some details about the tontine parameters.
         assert!(!vector::is_empty(&invitees), error::invalid_argument(E_CREATION_INVITEES_EMPTY));
@@ -367,6 +379,21 @@ module addr::tontine05 {
         assert!(claim_window_secs < 60 * 60 * 24 * 365, error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL));
         assert!(per_member_amount_octa > 0, error::invalid_argument(E_CREATION_PER_MEMBER_AMOUNT_ZERO));
 
+        // If the tontine is configured to stake the funds once it is locked, ensure
+        // there is a delegation pool at the specified address.
+        if (option::is_some(&stake_with)) {
+            assert!(
+                delegation_pool::delegation_pool_exists(*option::borrow(&stake_with)),
+                error::invalid_argument(E_CREATION_NO_DELEGATION_POOL),
+            );
+            // todo: Confirm the claim window is > how long it takes to unlock stake.
+            // todo: Check if this "how long it takes to unlock stake" value can be
+            // changed while coins are staked. Alternatively this contract could read
+            // that value and factor it in to whether claiming is allowed. If the lockup
+            // time is X, give them x * 1.5 or something to allow for calling unlock and
+            // then claim afterwards.
+        };
+
         let caller_addr = signer::address_of(caller);
 
         // Add the creator's address to `invitees` if necessary.
@@ -374,18 +401,20 @@ module addr::tontine05 {
             vector::push_back(&mut invitees, caller_addr);
         };
 
-        // Ensure there are no duplicates in the invitees list.
-        let len = vector::length(&invitees);
-        let i = 0;
-        while (i < len) {
-            let invitee = vector::borrow(&invitees, i);
-            let j = i + 1;
-            while (j < len) {
-                let other_invitee = vector::borrow(&invitees, j);
-                assert!(invitee != other_invitee, error::invalid_argument(E_CREATION_INVITEES_HAS_DUPLICATES));
-                j = j + 1;
-            };
-            i = i + 1;
+        // Build member_data. This will fail if there are duplicates in the invitees
+        // list.
+        let member_data = simple_map::create();
+        while (vector::length(&invitees) > 0) {
+            let invitee = vector::pop_back(&mut invitees);
+            simple_map::add(
+                &mut member_data,
+                invitee,
+                MemberData {
+                    contributed_octa: 0,
+                    reconfirmation_required: false,
+                    last_check_in_time_secs: option::none(),
+                },
+            );
         };
 
         // Create a new object.
@@ -408,33 +437,36 @@ module addr::tontine05 {
         };
 
         assert!(
-            fallback_policy == TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS ||
-            fallback_policy == TONTINE_FALLBACK_POLICY_DONATE,
+            fallback_policy == TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS,
             error::invalid_argument(E_CREATION_INVALID_FALLBACK_POLICY),
         );
 
-        // Build the TontineConfig. We modify some of the arguments above (e.g.
-        // `invitees`) so this isn't a direct mapping of the inputs.
+        // Build the TontineConfig. This is mostly a direct copy of the input arguments.
         let tontine_config = TontineConfig {
             description,
-            members: invitees,
-            per_member_amount_octa: per_member_amount_octa,
-            check_in_frequency_secs: check_in_frequency_secs,
-            claim_window_secs: claim_window_secs,
+            per_member_amount_octa,
+            check_in_frequency_secs,
+            claim_window_secs,
             fallback_policy: TontineFallbackPolicy {
                 policy: fallback_policy,
             },
+            stake_with,
         };
+
+        // Create a resource account to hold the funds of the tontine.
+        let (funds_account_signer, funds_account_signer_cap) = account::create_resource_account(
+            object_signer,
+            vector::empty(),
+        );
+        coin::register<AptosCoin>(&funds_account_signer);
 
         // Create the Tontine.
         let tontine_created_events = object::new_event_handle(object_signer);
         let tontine = Tontine {
             config: tontine_config,
             creation_time_secs: now_seconds(),
-            contributions: simple_map::create(),
-            reconfirmation_required: vector::empty(),
+            member_data,
             locked_time_secs: 0,
-            last_check_in_times_secs: simple_map::create(),
             funds_claimed_secs: 0,
             funds_claimed_by: option::none(),
             fallback_executed: false,
@@ -448,6 +480,7 @@ module addr::tontine05 {
             member_checked_in_events: object::new_event_handle(object_signer),
             funds_claimed_events: object::new_event_handle(object_signer),
             fallback_executed_events: object::new_event_handle(object_signer),
+            funds_account_signer_cap,
             delete_ref,
         };
 
@@ -456,6 +489,7 @@ module addr::tontine05 {
             creator: caller_addr,
         });
 
+        // Move the tontine resource into the object.
         move_to(object_signer, tontine);
 
         object::object_from_constructor_ref(constructor_ref)
@@ -482,28 +516,30 @@ module addr::tontine05 {
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
         // Assert the member isn't already in the tontine.
-        assert!(!vector::contains(&tontine_.config.members, &member), error::invalid_argument(E_MEMBER_ALREADY_IN_TONTINE));
+        assert!(
+            !simple_map::contains_key(&tontine_.member_data, &member),
+            error::invalid_argument(E_MEMBER_ALREADY_IN_TONTINE),
+        );
+
+        // Require reconfirmation from all members of the tontine besides the creator
+        // and the person who was just added.
+        require_reconfirmation(tontine_, &caller_addr);
 
         // Add the member to the tontine.
-        vector::push_back(&mut tontine_.config.members, member);
+        simple_map::add(
+            &mut tontine_.member_data,
+            member,
+            MemberData {
+                contributed_octa: 0,
+                reconfirmation_required: false,
+                last_check_in_time_secs: option::none(),
+            },
+        );
 
         // Emit an event for the member being added.
         event::emit_event(&mut tontine_.member_invited_events, MemberInvitedEvent {
             member: caller_addr,
         });
-
-        // Require reconfirmation from all members of the tontine besides the creator.
-        let len = vector::length(&tontine_.config.members);
-        let i = 0;
-        while (i < len) {
-            let member = vector::borrow(&tontine_.config.members, i);
-            if (member != &caller_addr) {
-                if (!vector::contains(&tontine_.reconfirmation_required, member)) {
-                    vector::push_back(&mut tontine_.reconfirmation_required, *member);
-                };
-            };
-            i = i + 1;
-        };
     }
 
     // Remove a member from a staging tontine.
@@ -530,14 +566,13 @@ module addr::tontine05 {
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
         // Assert the member is in the tontine.
-        let (in_tontine, i) = vector::index_of(&tontine_.config.members, &member);
-        assert!(in_tontine, error::invalid_argument(E_MEMBER_NOT_IN_TONTINE));
-
-        // Remove the member from the tontine.
-        vector::remove(&mut tontine_.config.members, i);
+        assert!(simple_map::contains_key(&tontine_.member_data, &member), error::invalid_argument(E_MEMBER_NOT_IN_TONTINE));
 
         // Return any funds this person might have contributed.
-        withdraw_all(tontine_, member);
+        transfer_all(tontine_, &member, &member);
+
+        // Remove the member from the tontine.
+        simple_map::remove(&mut tontine_.member_data, &member);
 
         // Emit an event for the member being removed.
         event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
@@ -545,20 +580,14 @@ module addr::tontine05 {
             removed: true,
         });
 
-        // Require reconfirmation from all members of the tontine besides the creator.
-        let len = vector::length(&tontine_.config.members);
-        let i = 0;
-        while (i < len) {
-            let member = vector::borrow(&tontine_.config.members, i);
-            if (member != &caller_addr) {
-                if (!vector::contains(&tontine_.reconfirmation_required, member)) {
-                    vector::push_back(&mut tontine_.reconfirmation_required, *member);
-                };
-            };
-            i = i + 1;
-        };
+        // Require reconfirmation from all members of the tontine besides the creator
+        // and the person who was just added.
+        require_reconfirmation(tontine_, &caller_addr);
     }
 
+    /// After a member is added / removed or the configuration is changed, members must
+    /// reconfirm their desire to be in the tontine. They must call this function to do
+    // so.
     public entry fun reconfirm(
         caller: &signer,
         tontine: Object<Tontine>,
@@ -572,19 +601,18 @@ module addr::tontine05 {
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
-        // Remove the member from the list of members who need to reconfirm if they are
-        // in the list.
-        let (must_reconfirm, i) = vector::index_of(&tontine_.reconfirmation_required, &caller_addr);
-        if (must_reconfirm) {
-            vector::remove(&mut tontine_.reconfirmation_required, i);
-        };
+        let member_data = simple_map::borrow_mut(&mut tontine_.member_data, &caller_addr);
+        member_data.reconfirmation_required = false;
     }
 
+    /// Contribute funds to the tontine.
     public entry fun contribute(
         caller: &signer,
         tontine: Object<Tontine>,
-        contribution_amount_octa: u64,
+        amount_octa: u64,
     ) acquires Tontine {
+        assert!(amount_octa > 0, error::invalid_argument(E_AMOUNT_ZERO));
+
         // Assert the tontine is in a valid state.
         let allowed = vector::empty();
         vector::push_back(&mut allowed, OVERALL_STATUS_STAGING);
@@ -595,43 +623,46 @@ module addr::tontine05 {
 
         // Assert the caller is a member of the tontine.
         let caller_addr = signer::address_of(caller);
-        assert_in_tontine(tontine_, &caller_addr);
+        assert_caller_in_tontine(tontine_, &caller_addr);
 
-        // Withdraw the contribution from the contributor's account.
-        let contribution = coin::withdraw<AptosCoin>(caller, contribution_amount_octa);
+        // Transfer the funds from the caller's accounts to the resource account
+        // containing the tontine funds.
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        coin::transfer<AptosCoin>(caller, resource_acc_addr, amount_octa);
 
-        if (simple_map::contains_key(&tontine_.contributions, &caller_addr)) {
-            // This contributor has already contributed, merge this new contribution
-            // with their existing one.
-            let existing_contribution = simple_map::borrow_mut(&mut tontine_.contributions, &caller_addr);
-            coin::merge(existing_contribution, contribution);
-        } else {
-            // The contributor has not contributed yet.
-            simple_map::add(&mut tontine_.contributions, caller_addr, contribution);
-        };
+        // Account for the coins contributed.
+        let contributor_data = simple_map::borrow_mut(&mut tontine_.member_data, &caller_addr);
+        contributor_data.contributed_octa = contributor_data.contributed_octa + amount_octa;
 
         // Emit an event.
         event::emit_event(&mut tontine_.member_contributed_events, MemberContributedEvent {
             member: caller_addr,
-            amount_octa: contribution_amount_octa,
+            amount_octa: amount_octa,
         });
     }
 
+    /// Withdraw funds from the tontine.
     public entry fun withdraw(
         caller: &signer,
         tontine: Object<Tontine>,
-        withdrawal_amount_octa: u64,
+        amount_octa: u64,
     ) acquires Tontine {
+        assert!(amount_octa > 0, error::invalid_argument(E_AMOUNT_ZERO));
+
         // Assert the tontine is in a valid state.
         let allowed = vector::empty();
         vector::push_back(&mut allowed, OVERALL_STATUS_STAGING);
         vector::push_back(&mut allowed, OVERALL_STATUS_CAN_BE_LOCKED);
         assert_overall_status(tontine, allowed);
 
-        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
         let caller_addr = signer::address_of(caller);
 
-        withdraw_part(tontine_, caller_addr, withdrawal_amount_octa);
+        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Assert the caller is a member of the tontine.
+        assert_caller_in_tontine(tontine_, &caller_addr);
+
+        transfer_part(tontine_, &caller_addr, &caller_addr, amount_octa);
     }
 
     /// Leave a tontine. If the member has any funds in the tontine, this will withdraw
@@ -654,13 +685,14 @@ module addr::tontine05 {
         // Make sure the caller is not the creator.
         assert!(caller_addr != object::owner(tontine), error::invalid_argument(E_CALLER_IS_CREATOR));
 
+        // Assert the caller is in the tontine.
+        assert_caller_in_tontine(tontine_, &caller_addr);
+
         // Withdraw all funds.
-        withdraw_all(tontine_, caller_addr);
+        transfer_all(tontine_, &caller_addr, &caller_addr);
 
         // Leave the tontine.
-        let (in_tontine, i) = vector::index_of(&tontine_.config.members, &caller_addr);
-        assert!(in_tontine, error::invalid_state(E_CALLER_NOT_IN_TONTINE));
-        vector::remove(&mut tontine_.config.members, i);
+        simple_map::remove(&mut tontine_.member_data, &caller_addr);
 
         // Emit an event.
         event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
@@ -683,10 +715,17 @@ module addr::tontine05 {
 
         // Assert the caller is a member of the tontine.
         let caller_addr = signer::address_of(caller);
-        assert_in_tontine(tontine_, &caller_addr);
+        assert_caller_in_tontine(tontine_, &caller_addr);
 
         // Set the locked_time_secs to the current time.
         tontine_.locked_time_secs = now_seconds();
+
+        /*
+        // If configured to do so, stake all the funds.
+        if (option::is_some(&stake_with)) {
+
+        }
+        */
 
         // Emit an event.
         event::emit_event(&mut tontine_.tontine_locked_events, TontineLockedEvent {});
@@ -697,20 +736,18 @@ module addr::tontine05 {
         caller: &signer,
         tontine: Object<Tontine>,
     ) acquires Tontine {
-        // Assert the caller is still allowed to check in.
         let caller_addr = signer::address_of(caller);
 
+        // Assert the caller is still allowed to check in.
         let allowed = vector::empty();
         vector::push_back(&mut allowed, MEMBER_STATUS_STILL_ELIGIBLE);
-        // Let the user keep checking in if they want, even though they could just
-        // claim the funds.
-        vector::push_back(&mut allowed, MEMBER_STATUS_CAN_CLAIM_FUNDS);
         assert_member_status(tontine, allowed, caller_addr);
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
         // Update the last check in time for the caller.
-        simple_map::upsert(&mut tontine_.last_check_in_times_secs, caller_addr, now_seconds());
+        let member_data = simple_map::borrow_mut(&mut tontine_.member_data, &caller_addr);
+        option::swap_or_fill(&mut member_data.last_check_in_time_secs, now_seconds());
 
         // Emit an event.
         event::emit_event(&mut tontine_.member_checked_in_events, MemberCheckedInEvent {
@@ -728,28 +765,23 @@ module addr::tontine05 {
 
         // Assert the caller is allowed to claim the funds. The underlying member status
         // function will only ever return MEMBER_STATUS_CAN_CLAIM_FUNDS if only a single
-        // member remains and we're within the claim window.
+        // member remains and they're within the claim window.
         let allowed = vector::empty();
         vector::push_back(&mut allowed, MEMBER_STATUS_CAN_CLAIM_FUNDS);
         assert_member_status(tontine, allowed, caller_addr);
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
-        // Take out all the contributions from the tontine and merge them.
-        let funds = coin::zero();
-        let len = vector::length(&tontine_.config.members);
+        // Transfer all funds in the resource account to the caller.
+        let len = simple_map::length(&tontine_.member_data);
         let i = 0;
         while (i < len) {
-            let member = vector::borrow(&tontine_.config.members, i);
-            let (_, v) = simple_map::remove(&mut tontine_.contributions, member);
-            coin::merge(&mut funds, v);
+            let member = *simple_map::key_at_idx(&tontine_.member_data, i);
+            transfer_all(tontine_, &member, &caller_addr);
             i = i + 1;
         };
 
-        // Give the funds to the claimer.
-        coin::deposit<AptosCoin>(caller_addr, funds);
-
-        // Mark the tontine as claimed.
+        // Mark the funds as claimed.
         tontine_.funds_claimed_secs = now_seconds();
         tontine_.funds_claimed_by = option::some(caller_addr);
 
@@ -772,26 +804,7 @@ module addr::tontine05 {
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
         if (tontine_.config.fallback_policy.policy == TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS) {
-            let i = 0;
-            let len = vector::length(&tontine_.config.members);
-            while (i < len) {
-                let member = vector::borrow(&tontine_.config.members, i);
-                let (_, v) = simple_map::remove(&mut tontine_.contributions, member);
-                coin::deposit(*member, v);
-                i = i + 1;
-            };
-        } else if (tontine_.config.fallback_policy.policy == TONTINE_FALLBACK_POLICY_DONATE) {
-            let funds = coin::zero();
-            let len = vector::length(&tontine_.config.members);
-            let i = 0;
-            while (i < len) {
-                let member = vector::borrow(&tontine_.config.members, i);
-                let (_, v) = simple_map::remove(&mut tontine_.contributions, member);
-                coin::merge(&mut funds, v);
-                i = i + 1;
-            };
-            // This address corresponds to giving.apt
-            coin::deposit(@0xd08bfe94dccb607e27177958c7af33c71f926e73a13f3ecdd18e1cfba56783a7, funds);
+            return_funds_to_members(tontine_);
         } else {
             // This should never happen.
             assert!(false, 255);
@@ -825,24 +838,17 @@ module addr::tontine05 {
 
         let tontine_ = move_from<Tontine>(object::object_address(&tontine));
 
-        // Return any funds to the members of the tontine.
-        let i = 0;
-        let len = vector::length(&tontine_.config.members);
-        while (i < len) {
-            let addr = *vector::borrow(&tontine_.config.members, i);
-            withdraw_all(&mut tontine_, addr);
-            i = i + 1;
-        };
+        // Return any funds to the members of the tontine. This is only relevant if
+        // we're destroying a tontine in staging.
+        return_funds_to_members(&mut tontine_);
 
         // Take all the fields out of the Tontine. Immediately drop those that can
         // be dropped.
         let Tontine {
             config: _,
             creation_time_secs: _,
-            contributions,
-            reconfirmation_required: _,
+            member_data: _,
             locked_time_secs: _,
-            last_check_in_times_secs: _,
             funds_claimed_secs: _,
             funds_claimed_by: _,
             fallback_executed: _,
@@ -856,13 +862,9 @@ module addr::tontine05 {
             member_checked_in_events,
             funds_claimed_events,
             fallback_executed_events,
+            funds_account_signer_cap: _,
             delete_ref,
         } = tontine_;
-
-        // There should be nothing in this map after returning all the funds above
-        // so this is just destroying an empty map.
-        let (_, coins) = simple_map::to_vec_pair(contributions);
-        vector::destroy_empty(coins);
 
         // Delete the event handles.
         event::destroy_handle(tontine_created_events);
@@ -876,63 +878,97 @@ module addr::tontine05 {
         event::destroy_handle(funds_claimed_events);
         event::destroy_handle(fallback_executed_events);
 
+        // How do I destroy the resource account? Or at least the coin store on the account.
+
         // Destroy the object core.
         object::delete(delete_ref);
     }
 
-    // Withdraw all the funds for a member, if any.
-    inline fun withdraw_all(
-        tontine_: &mut Tontine,
-        withdrawer: address,
-    ) {
-        if (simple_map::contains_key(&tontine_.contributions, &withdrawer)) {
-            let amount = coin::value(simple_map::borrow(&tontine_.contributions, &withdrawer));
-            withdraw_part(tontine_, withdrawer, amount);
-        }
-    }
-
-    inline fun withdraw_part(
-        tontine_: &mut Tontine,
-        // The address of the member who is withdrawing.
-        withdrawer: address,
-        withdrawal_amount_octa: u64,
-    ) {
-        // Assert the member has actually contributed.
-        assert!(simple_map::contains_key(&tontine_.contributions, &withdrawer), error::invalid_state(E_NO_CONTRIBUTION_MADE_YET));
-
-        // Extract the withdrawal amount from the member's contribution.
-        let (withdrawer, contribution) = simple_map::remove(&mut tontine_.contributions, &withdrawer);
-        let withdrawal = coin::extract<AptosCoin>(&mut contribution, withdrawal_amount_octa);
-        coin::deposit<AptosCoin>(withdrawer, withdrawal);
-
-        if (coin::value(&contribution) == 0) {
-            // If the leftover amount is zero, destroy the contribution.
-            coin::destroy_zero(contribution);
-        } else {
-            // If there is some left, put it back in the contributions map.
-            simple_map::add(&mut tontine_.contributions, withdrawer, contribution);
+    /// Require reconfirmation from all members of the tontine besides the creator.
+    inline fun require_reconfirmation(tontine_: &mut Tontine, caller_addr: &address) {
+        let len = simple_map::length(&tontine_.member_data);
+        let i = 0;
+        while (i < len) {
+            let member = *simple_map::key_at_idx(&tontine_.member_data, i);
+            if (&member != caller_addr) {
+                let member_data = simple_map::borrow_mut(&mut tontine_.member_data, &member);
+                member_data.reconfirmation_required = true;
+            };
+            i = i + 1;
         };
-
-        // Emit an event.
-        event::emit_event(&mut tontine_.member_withdrew_events, MemberWithdrewEvent {
-            member: withdrawer,
-            amount_octa: withdrawal_amount_octa,
-        });
     }
 
-    inline fun assert_in_tontine(tontine: &Tontine, caller: &address) {
-        let (in_tontine, _i) = vector::index_of(&tontine.config.members, caller);
-        assert!(in_tontine, error::invalid_state(E_CALLER_NOT_IN_TONTINE));
+    /// Return the contributions from each member to them.
+    inline fun return_funds_to_members(tontine_: &mut Tontine) {
+        let len = simple_map::length(&tontine_.member_data);
+        let i = 0;
+        while (i < len) {
+            let member = *simple_map::key_at_idx(&tontine_.member_data, i);
+            transfer_all(tontine_, &member, &member);
+            i = i + 1;
+        };
+    }
+
+    /// Transfer all funds deposited by depositor to withdrawer.
+    inline fun transfer_all(
+        tontine_: &mut Tontine,
+        depositor: &address,
+        withdrawer: &address,
+    ) {
+        let depositor_data = simple_map::borrow(&tontine_.member_data, depositor);
+        transfer_part(tontine_, depositor, withdrawer, depositor_data.contributed_octa);
+    }
+
+    /// Transfer some funds deposited by depositor to withdrawer.
+    inline fun transfer_part(
+        tontine_: &mut Tontine,
+        depositor: &address,
+        withdrawer: &address,
+        amount_octa: u64,
+    ) {
+        let depositor_data = simple_map::borrow_mut(&mut tontine_.member_data, depositor);
+
+        // Assert that the withdrawer is not trying to withdraw more than the depositor
+        // contributed.
+        assert!(
+            amount_octa <= depositor_data.contributed_octa,
+            error::invalid_state(E_INSUFFICIENT_CONTRIBUTION),
+        );
+
+        // Transfer funds deposited by the depositor from the tontine to the withdrawer.
+        coin::transfer<AptosCoin>(
+            &account::create_signer_with_capability(&tontine_.funds_account_signer_cap),
+            *withdrawer,
+            amount_octa,
+        );
+
+        // Emit an event
+        event::emit_event(&mut tontine_.member_withdrew_events, MemberWithdrewEvent {
+            member: *withdrawer,
+            amount_octa: amount_octa,
+        });
+
+        // Account for the withdrawal of the funds.
+        depositor_data.contributed_octa = depositor_data.contributed_octa - amount_octa;
+    }
+
+    /// Assert the caller is in the tontine.
+    inline fun assert_caller_in_tontine(tontine_: &Tontine, caller_addr: &address) {
+        assert!(
+            simple_map::contains_key(&tontine_.member_data, caller_addr),
+            error::invalid_state(E_CALLER_NOT_IN_TONTINE),
+        );
     }
 
     /// Get the time a member last checked in.
     fun get_last_check_in_time_secs(tontine: &Tontine, member: &address): u64 {
-        if (!simple_map::contains_key(&tontine.last_check_in_times_secs, member)) {
+        let member_data = simple_map::borrow(&tontine.member_data, member);
+        if (option::is_some(&member_data.last_check_in_time_secs)) {
+            *option::borrow(&member_data.last_check_in_time_secs)
+        } else {
             // If the member has never explicitly checked in, the implied last check in
             // is the time the tontine was locked.
             tontine.locked_time_secs
-        } else {
-            *simple_map::borrow(&tontine.last_check_in_times_secs, member)
         }
     }
 
@@ -950,13 +986,14 @@ module addr::tontine05 {
 
         // Some data we collect as we build the statuses.
         let num_checked_in_frequently_enough = 0;
-        let most_recent_check_in_address = vector::borrow(&tontine_.config.members, 0);
+        let most_recent_check_in_address = simple_map::key_at_idx(&tontine_.member_data, 0);
         let most_recent_check_in_time_secs = 0;
 
         let i = 0;
-        let len = vector::length(&tontine_.config.members);
+        let len = simple_map::length(&tontine_.member_data);
         while (i < len) {
-            let member = vector::borrow(&tontine_.config.members, i);
+            let member = simple_map::key_at_idx(&tontine_.member_data, i);
+            let member_data = simple_map::borrow(&tontine_.member_data, member);
 
             let status = if (funds_claimed) {
                 // The funds were claimed.
@@ -986,24 +1023,18 @@ module addr::tontine05 {
                 }
             } else {
                 // The tontine is not locked yet.
-                if (!simple_map::contains_key(&tontine_.contributions, member)) {
-                    // The member has not contributed funds yet.
+                if (member_data.contributed_octa < tontine_.config.per_member_amount_octa) {
+                    // The member has contributed funds, but not yet enough.
                     MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS
                 } else {
-                    let contributed_amount = coin::value(simple_map::borrow(&tontine_.contributions, member));
-                    if (contributed_amount < tontine_.config.per_member_amount_octa) {
-                        // The member has contributed funds, but not yet enough.
-                        MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS
+                    if (member_data.reconfirmation_required) {
+                        // The member has contributed the required funds but we're
+                        // waiting for them to reconfirm their membership intent.
+                        MEMBER_STATUS_MUST_RECONFIRM
                     } else {
-                        if (vector::contains(&tontine_.reconfirmation_required, member)) {
-                            // The member has contributed the required funds but we're
-                            // waiting for them to reconfirm their membership intent.
-                            MEMBER_STATUS_MUST_RECONFIRM
-                        } else {
-                            // The member has contributed the required funds and has no
-                            // reconfirmation obligations.
-                            MEMBER_STATUS_READY
-                        }
+                        // The member has contributed the required funds and has no
+                        // reconfirmation obligations.
+                        MEMBER_STATUS_READY
                     }
                 }
             };
@@ -1061,7 +1092,7 @@ module addr::tontine05 {
         };
 
         // Build up counts of relevant per member statuses.
-        let num_members = vector::length(&tontine_.config.members);
+        let num_members = simple_map::length(&tontine_.member_data);
         let num_ready = 0;
 
         loop {
@@ -1091,8 +1122,8 @@ module addr::tontine05 {
         OVERALL_STATUS_LOCKED
     }
 
-    // Assert that the overall status is in the allowed list. If not, return an error
-    // corresponding to what status it is in.
+    /// Assert that the overall status is in the allowed list. If not, return an error
+    /// corresponding to what status it is in.
     inline fun assert_overall_status(tontine: Object<Tontine>, allowed: vector<u8>) acquires Tontine {
         let status = get_overall_status(tontine);
 
@@ -1101,8 +1132,8 @@ module addr::tontine05 {
         assert!(vector::contains(&allowed, &status), error::invalid_state((status as u64)));
     }
 
-    // Assert that the member status is in the allowed list. If not, return an error
-    // corresponding to what status it is in.
+    /// Assert that the member status is in the allowed list. If not, return an error
+    /// corresponding to what status it is in.
     inline fun assert_member_status(tontine: Object<Tontine>, allowed: vector<u8>, member: address) acquires Tontine {
         let status = get_member_status(tontine, member);
 
@@ -1177,7 +1208,7 @@ module addr::tontine05 {
         vector::push_back(&mut invitees, friend1_addr);
         vector::push_back(&mut invitees, friend2_addr);
 
-        create_(creator, string::utf8(b"test"), invitees, CHECK_IN_FREQUENCY_SECS, CLAIM_WINDOW_SECS, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS)
+        create_(creator, string::utf8(b"test"), invitees, CHECK_IN_FREQUENCY_SECS, CLAIM_WINDOW_SECS, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS, option::none())
     }
 
     #[test_only]
@@ -1312,7 +1343,7 @@ module addr::tontine05 {
     // TODO: Confirm that these failure codes are what we expect.
     // https://github.com/aptos-labs/aptos-core/issues/8182
 
-    #[expected_failure(abort_code = 65551, location = Self)]
+    #[expected_failure(abort_code = 65553, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_creator_cannot_leave(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1357,7 +1388,7 @@ module addr::tontine05 {
         assert!(before == after, 0);
     }
 
-    #[expected_failure(abort_code = 65550, location = Self)]
+    #[expected_failure(abort_code = 65552, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_only_creator_can_invite_members(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1367,7 +1398,7 @@ module addr::tontine05 {
         invite_member(&friend1, tontine, @0x987654321);
     }
 
-    #[expected_failure(abort_code = 65550, location = Self)]
+    #[expected_failure(abort_code = 65552, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_only_creator_can_remove_members(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1387,7 +1418,7 @@ module addr::tontine05 {
         invite_member(&creator, tontine, friend2_addr);
     }
 
-    #[expected_failure(abort_code = 65554, location = Self)]
+    #[expected_failure(abort_code = 65556, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_creator_cannot_remove_self(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1395,14 +1426,14 @@ module addr::tontine05 {
         remove_member(&creator, tontine, creator_addr);
     }
 
-    #[expected_failure(abort_code = 65553, location = Self)]
+    #[expected_failure(abort_code = 65555, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_remove_member_not_in_tontine(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
         remove_member(&creator, tontine, @0x987654321);
     }
 
-    #[expected_failure(abort_code = 65552, location = Self)]
+    #[expected_failure(abort_code = 65554, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_invite_member_twice(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1468,7 +1499,7 @@ module addr::tontine05 {
 
     // Confirm that a member who was removed cannot lock the tontine even after
     // reconfirmation fully occurred.
-    #[expected_failure(abort_code = 196617, location = Self)]
+    #[expected_failure(abort_code = 196620, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_lock_if_removed_after_reconfirmation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1484,7 +1515,7 @@ module addr::tontine05 {
         lock(&friend1, tontine);
     }
 
-    #[expected_failure(abort_code = 196617, location = Self)]
+    #[expected_failure(abort_code = 196620, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_contribute_after_leaving(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
@@ -1531,6 +1562,19 @@ module addr::tontine05 {
 
         // Confirm that friend1 can claim the funds.
         claim(&friend1, tontine);
+
+        // Confirm that no funds remain in the tontine.
+        let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        assert!(coin::balance<AptosCoin>(resource_acc_addr) == 0, 0);
+
+        // Confirm that the contribution amounts are zero for all members.
+        let creator_addr = signer::address_of(&creator);
+        let friend1_addr = signer::address_of(&friend1);
+        let friend2_addr = signer::address_of(&friend2);
+        assert!(simple_map::borrow(&tontine_.member_data, &creator_addr).contributed_octa == 0, 0);
+        assert!(simple_map::borrow(&tontine_.member_data, &friend1_addr).contributed_octa == 0, 0);
+        assert!(simple_map::borrow(&tontine_.member_data, &friend2_addr).contributed_octa == 0, 0);
     }
 
     #[expected_failure(abort_code = 196740, location = Self)]
