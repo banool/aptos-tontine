@@ -10,12 +10,12 @@ module addr::tontine05 {
     use std::string;
     use std::vector;
     use std::timestamp::now_seconds;
-    //use aptos_framework::aptos_account;
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::aptos_coin::AptosCoin;
     use aptos_framework::coin::Self;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::delegation_pool;
+    use aptos_framework::staking_config;
     use aptos_std::object::{Self, DeleteRef, Object};
     use dport_std::simple_map::{Self, SimpleMap};
 
@@ -36,7 +36,9 @@ module addr::tontine05 {
     /// `check_in_frequency_secs` was out of the accepted range.
     const E_CREATION_CHECK_IN_FREQUENCY_OUT_OF_RANGE: u64 = 4;
 
-    /// `claim_window_secs` was too small.
+    /// `claim_window_secs` was too small. If the tontine is being configured to stake
+    /// funds to a delegation pool, the claim window needs to be large enough to allow
+    /// for unlocking the funds.
     const E_CREATION_CLAIM_WINDOW_TOO_SMALL: u64 = 5;
 
     /// `fallback_policy` was invalid.
@@ -82,6 +84,15 @@ module addr::tontine05 {
 
     /// The creator tried to contribute / withdraw zero OCTA.
     const E_AMOUNT_ZERO: u64 = 21;
+
+    /// Someone tried to unlock funds but funds were never staked.
+    const E_FUNDS_WERE_NOT_STAKED: u64 = 22;
+
+    /// Tried to unlock staked funds but there was nothing to unlock.
+    const E_NO_FUNDS_TO_UNLOCK: u64 = 23;
+
+    /// Tried to withdraw staked funds but there was nothing withdrawable.
+    const E_NO_FUNDS_TO_WITHDRAW: u64 = 24;
 
     /*
     ** Error codes corresponding to the overall status of a tontine. We use these when
@@ -386,12 +397,14 @@ module addr::tontine05 {
                 delegation_pool::delegation_pool_exists(*option::borrow(&stake_with)),
                 error::invalid_argument(E_CREATION_NO_DELEGATION_POOL),
             );
-            // todo: Confirm the claim window is > how long it takes to unlock stake.
-            // todo: Check if this "how long it takes to unlock stake" value can be
-            // changed while coins are staked. Alternatively this contract could read
-            // that value and factor it in to whether claiming is allowed. If the lockup
-            // time is X, give them x * 1.5 or something to allow for calling unlock and
-            // then claim afterwards.
+            // Since a delegation pool is specified we need to make sure that the claim
+            // window is long enough to allow for someone to call unlock on the staked
+            // funds and then claim them once they are withdrawable. To that end we
+            // ensure that the claim window is at least 2x the lockup duration.
+            assert!(
+                claim_window_secs > staking_config::get_recurring_lockup_duration(&staking_config::get()) * 2,
+                error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL),
+            );
         };
 
         let caller_addr = signer::address_of(caller);
@@ -720,12 +733,17 @@ module addr::tontine05 {
         // Set the locked_time_secs to the current time.
         tontine_.locked_time_secs = now_seconds();
 
-        /*
         // If configured to do so, stake all the funds.
-        if (option::is_some(&stake_with)) {
-
-        }
-        */
+        if (option::is_some(&tontine_.config.stake_with)) {
+            let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
+            let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+            let total_balance = coin::balance<AptosCoin>(resource_acc_addr);
+            delegation_pool::add_stake(
+                &resource_acc_signer,
+                *option::borrow(&tontine_.config.stake_with),
+                total_balance
+            );
+        };
 
         // Emit an event.
         event::emit_event(&mut tontine_.tontine_locked_events, TontineLockedEvent {});
@@ -755,6 +773,42 @@ module addr::tontine05 {
         });
     }
 
+    /// If someone is now eligible to claim the funds, or the fallback can be executed,
+    /// and the tontine was configured to stake the funds upon being locked, this will
+    /// request the funds in the delegation pool to be unstaked. After the lockup
+    /// period has passed, the funds will be available to be withdrawn by calling claim
+    /// or execute_fallback.
+    public entry fun unlock(
+        tontine: Object<Tontine>,
+    ) acquires Tontine {
+        // Assert the tontine is in a state where the funds can be unlocked.
+        let allowed = vector::empty();
+        vector::push_back(&mut allowed, OVERALL_STATUS_FUNDS_CLAIMABLE);
+        vector::push_back(&mut allowed, OVERALL_STATUS_FUNDS_NEVER_CLAIMED);
+        assert_overall_status(tontine, allowed);
+
+        let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Assert funds were staked in the first place.
+        assert!(option::is_some(&tontine_.config.stake_with), error::invalid_argument(E_FUNDS_WERE_NOT_STAKED));
+
+        let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        let pool_address = *option::borrow(&tontine_.config.stake_with);
+        let (stake_active, stake_inactive, _) = delegation_pool::get_stake(pool_address, resource_acc_addr);
+
+        let to_unlock = stake_active + stake_inactive;
+
+        // Assert there is something to unstake.
+        assert!(to_unlock > 0, error::invalid_argument(E_NO_FUNDS_TO_UNLOCK));
+
+        delegation_pool::unlock(
+            &resource_acc_signer,
+            pool_address,
+            to_unlock,
+        );
+    }
+
     /// Claim the funds of the tontine. This will only work if everyone else has failed
     /// to check in and the the claim window has not passed.
     public entry fun claim(
@@ -771,6 +825,25 @@ module addr::tontine05 {
         assert_member_status(tontine, allowed, caller_addr);
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // If the funds were staked, withdraw any funds from the stake pool. If the
+        // funds cannot be withdrawn, unlock hasn't been called yet / was called too
+        // recently, in which case we abort.
+        if (option::is_some(&tontine_.config.stake_with)) {
+            let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
+            let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+            let pool_address = *option::borrow(&tontine_.config.stake_with);
+            let (can_withdraw, to_withdraw) = delegation_pool::get_pending_withdrawal(pool_address, resource_acc_addr);
+
+            // Assert there is something to withdraw.
+            assert!(can_withdraw, error::invalid_argument(E_NO_FUNDS_TO_WITHDRAW));
+
+            delegation_pool::withdraw(
+                &resource_acc_signer,
+                pool_address,
+                to_withdraw,
+            );
+        };
 
         // Transfer all funds in the resource account to the caller.
         let len = simple_map::length(&tontine_.member_data);
