@@ -3,7 +3,7 @@ import { StakeData, getStakeData } from "..";
 import { getModuleId, useGlobalState } from "../../GlobalState";
 
 export function useGetStakeData(
-    tontineAddress: string,
+  tontineAddress: string,
   options: {
     enabled?: boolean;
     // If you want to refetch the query when some additional criteria changes,

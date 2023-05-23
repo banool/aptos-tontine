@@ -484,14 +484,14 @@ export function CreateTontine({}: {}) {
                   <FormLabel>
                     {"Stake with delegation pool "}
                     <SelectableTooltip
-                      label="The address of a delegation pool. This corresponds to the staking pool address here: https://explorer.aptoslabs.com/validators/delegation. Not the operator address."
+                      label="If you'd like to stake funds while the tontine is locked, provide the address of a delegation pool. This corresponds to the staking pool address here: https://explorer.aptoslabs.com/validators/delegation. Not the operator address."
                       textComponent={<sup>ⓘ</sup>}
                       options={{ hideButton: true }}
                     />
                   </FormLabel>
                   <Input
                     w="75%"
-                    placeholder="Delegation pool address"
+                    placeholder="Delegation pool address (optional)"
                     {...field}
                   />
                   <FormErrorMessage>

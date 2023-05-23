@@ -81,7 +81,7 @@ export type StakeData = {
   active: number;
   inactive: number;
   pendingInactive: number;
-}
+};
 
 export async function getStakeData(
   tontineAddress: string,
@@ -96,10 +96,10 @@ export async function getStakeData(
   };
   const response = await client.view(payload);
   return {
-    active: response[0] as number,
-    inactive: response[1] as number,
-    pendingInactive: response[2] as number,
-  }
+    active: parseInt(response[0] as string),
+    inactive: parseInt(response[1] as string),
+    pendingInactive: parseInt(response[2] as string),
+  };
 }
 
 export async function getAnsName(
