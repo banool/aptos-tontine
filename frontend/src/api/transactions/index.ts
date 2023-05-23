@@ -166,6 +166,20 @@ export async function claim(
   };
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
 }
+export async function unlock(
+  signAndSubmitTransaction: (txn: any) => Promise<any>,
+  moduleId: string,
+  fullnodeUrl: string,
+  tontineAddress: string,
+) {
+  const transaction = {
+    type: "entry_function_payload",
+    function: `${moduleId}::unlock`,
+    type_arguments: [],
+    arguments: [tontineAddress],
+  };
+  await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);
+}
 
 export async function executeFallback(
   signAndSubmitTransaction: (txn: any) => Promise<any>,

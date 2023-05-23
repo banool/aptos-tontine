@@ -1,5 +1,4 @@
 import { Types } from "aptos";
-import { useGlobalState } from "./GlobalState";
 
 /**
  * Helper function for exhaustiveness checks.
@@ -170,18 +169,6 @@ export function formatUsdAmount(usdAmount: number | bigint): string {
 // https://stackoverflow.com/a/67629097/3846032
 export const interleave = (array: any[], ele: any) => {
   return array.flatMap((x) => [ele, x]).slice(1);
-};
-
-export const getContributionAmount = (
-  contributions: any,
-  address: string,
-): number => {
-  for (let i = 0; i < contributions.data.length; i++) {
-    if (contributions.data[i].key === address) {
-      return parseInt(contributions.data[i].value.value);
-    }
-  }
-  return 0;
 };
 
 // This is the kinda thing we could have in a RemoteAbiReader btw.

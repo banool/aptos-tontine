@@ -39,6 +39,7 @@ import { create } from "../api/transactions";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQueryClient } from "react-query";
 import { SelectableTooltip } from "./SelectableTooltip";
+import { useGetOperatorAddressOfStakingPool } from "../api/hooks/useGetOperatorAddressOfStakingPool";
 
 interface MyFormValues {
   description: string;
@@ -135,16 +136,13 @@ export function CreateTontine({}: {}) {
 
   const validateAddressInput = (value: string, blankOkay: boolean) => {
     let error;
-    if (value === "" && !blankOkay) {
+    if (blankOkay && value === "") {
+      return error;
+    } else if (value === "") {
       error = "Cannot be blank";
     } else if (!isValidAccountAddress(value)) {
       // Lookup the invitee's address if it is an ANS name.
-      const ansNameLookup = ansNameLookups?.find(
-        (ans) => ans.address === value,
-      );
-      if (ansNameLookup?.name === undefined) {
-        error = "Not a valid address or ANS name";
-      }
+      error = "Not a valid address";
     }
     return error;
   };
@@ -250,6 +248,34 @@ export function CreateTontine({}: {}) {
     { enabled: entriesToLookup.length > 0 },
   );
 
+  const delegationPoolValid =
+    validateAddressInput(formik.values.delegationPool, false) === undefined;
+  const { operatorAddress, isLoading, error } =
+    useGetOperatorAddressOfStakingPool(formik.values.delegationPool, {
+      enabled: delegationPoolValid,
+    });
+
+  var operatorAddressString: string | undefined = undefined;
+  if (delegationPoolValid) {
+    if (isLoading) {
+      operatorAddressString = "Loading operator address...";
+    } else if (operatorAddress) {
+      operatorAddressString = `Operator address: ${operatorAddress}`;
+    }
+  }
+
+  const validateDelegationPool = () => {
+    var validationError;
+    if (delegationPoolValid) {
+      if (error) {
+        validationError = "Failed to load operator address";
+      } else if (operatorAddress === undefined) {
+        validationError = "No operator address found";
+      }
+    }
+    return validationError;
+  };
+
   return (
     <Box p={7}>
       <FormikProvider value={formik}>
@@ -313,6 +339,7 @@ export function CreateTontine({}: {}) {
                               {({ field }: { field: any }) => (
                                 <Input
                                   w="75%"
+                                  placeholder="Invitee address or ANS name"
                                   {...field}
                                   id={`invitees.${index}`}
                                 />
@@ -442,9 +469,12 @@ export function CreateTontine({}: {}) {
           </Field>
           <Field
             name="delegationPool"
-            validate={(value: string) => validateAddressInput(value, true)}
+            validate={(value: string) => validateDelegationPool()}
           >
             {({ field, form }: { field: any; form: any }) => {
+              const helper = operatorAddressString ? (
+                <FormHelperText>{operatorAddressString}</FormHelperText>
+              ) : null;
               return (
                 <FormControl
                   isInvalid={
@@ -454,19 +484,30 @@ export function CreateTontine({}: {}) {
                   <FormLabel>
                     {"Stake with delegation pool "}
                     <SelectableTooltip
-                      label="The address of a delegation pool. This corresponds to the staking pool address here: https://explorer.aptoslabs.com/validators/delegation?network=mainnet. Not the operator address."
+                      label="The address of a delegation pool. This corresponds to the staking pool address here: https://explorer.aptoslabs.com/validators/delegation. Not the operator address."
                       textComponent={<sup>ⓘ</sup>}
                       options={{ hideButton: true }}
                     />
                   </FormLabel>
-                  <Input w="75%" {...field} />
-                  <FormErrorMessage>{form.errors.description}</FormErrorMessage>
+                  <Input
+                    w="75%"
+                    placeholder="Delegation pool address"
+                    {...field}
+                  />
+                  <FormErrorMessage>
+                    {form.errors.delegationPool}
+                  </FormErrorMessage>
+                  {helper}
                 </FormControl>
               );
             }}
           </Field>
           <Box paddingTop={5}>
-            <Button type="submit" isLoading={formik.isSubmitting}>
+            <Button
+              type="submit"
+              isDisabled={!formik.isValid}
+              isLoading={formik.isSubmitting}
+            >
               {formik.isSubmitting ? (
                 <Spinner size="xs" />
               ) : (

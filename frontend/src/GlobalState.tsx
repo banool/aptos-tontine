@@ -7,6 +7,7 @@ import {
   defaultFeatureName,
   FeatureName,
   moduleLocations,
+  indexerUrls,
 } from "./constants";
 
 const selected_network = safeGetSelectedNetworkName();
@@ -95,4 +96,8 @@ export const getModuleId = (state: GlobalState): string => {
   const address = moduleLocations[state.network_name].address;
   const name = moduleLocations[state.network_name].name;
   return `${address}::${name}`;
+};
+
+export const getIndexerUrl = (state: GlobalState): string => {
+  return indexerUrls[state.network_name];
 };

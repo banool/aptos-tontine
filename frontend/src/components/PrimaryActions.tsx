@@ -38,6 +38,7 @@ import {
   executeFallback,
   leave,
   lock,
+  unlock,
   withdraw,
 } from "../api/transactions";
 import { useGetMemberStatuses } from "../api/hooks/useGetMemberStatuses";
@@ -56,6 +57,7 @@ import { useQueryClient } from "react-query";
 import { useGetAccountResources } from "../api/hooks/useGetAccountResources";
 import { ActiveTontine } from "../pages/HomePage";
 import { onTxnFailure, onTxnSuccess } from "../api/helpers";
+import { useGetStakeData } from "../api/hooks/useGetStakeData";
 
 export function PrimaryActions({
   activeTontine,
@@ -81,6 +83,10 @@ export function PrimaryActions({
   const toast = useToast();
 
   const moduleId = getModuleId(state);
+
+  const { data: stakeData } = useGetStakeData(activeTontine.address);
+
+  console.log("mamamia", stakeData);
 
   const [amountAptFormField, setAmountAptFormField] = useState("");
   const [waitingForTransaction, setWaitingForTransaction] = useState(false);
@@ -134,6 +140,7 @@ export function PrimaryActions({
   const contributionAmount =
     tontineData && account
       ? simpleMapArrayToMap(tontineData.member_data.data).get(account.address)
+          ?.contributed_octa
       : 0;
 
   const remainingContribution = tontineData
@@ -300,6 +307,7 @@ export function PrimaryActions({
 
   var claimDisabled = baseDisabled;
   var claimTooltip = baseTooltip;
+  const pendingInactive = stakeData?.pendingInactive ? true : false;
   if (
     overallStatus === OVERALL_STATUS_STAGING ||
     overallStatus === OVERALL_STATUS_CAN_BE_LOCKED
@@ -309,6 +317,17 @@ export function PrimaryActions({
   } else if (memberStatus !== MEMBER_STATUS_CAN_CLAIM_FUNDS) {
     claimDisabled = true;
     claimTooltip = "Multiple members are still eligible for the funds";
+  } else if (stakeData?.pendingInactive ?? 0 > 0) {
+    claimDisabled = true;
+    // todo figure out how long they have to wait
+    claimTooltip = "Funds have been unlocked but they're not withdrawable yet.";
+  }
+
+  var unlockDisabled = baseDisabled;
+  var unlockTooltip = baseTooltip;
+  if (stakeData?.active) {
+    unlockDisabled = false;
+    unlockTooltip = "Unlock funds from the stake pool.";
   }
 
   var executeFallbackDisabled = baseDisabled;
@@ -350,6 +369,8 @@ export function PrimaryActions({
     checkInTooltip = message;
     claimDisabled = true;
     claimTooltip = message;
+    unlockDisabled = true;
+    unlockTooltip = message;
     executeFallbackDisabled = true;
     executeFallbackTooltip = message;
   }
@@ -370,6 +391,8 @@ export function PrimaryActions({
     checkInTooltip = message;
     claimDisabled = true;
     claimTooltip = message;
+    unlockDisabled = true;
+    unlockTooltip = message;
     executeFallbackDisabled = true;
     executeFallbackTooltip = message;
   }
@@ -444,6 +467,84 @@ export function PrimaryActions({
       </ModalContent>
     </Modal>
   );
+
+  const claimButton = (
+    <Tooltip label={claimTooltip}>
+    <Button
+      colorScheme="blue"
+      isDisabled={claimDisabled}
+      onClick={async () => {
+        setWaitingForTransaction(true);
+        try {
+          await claim(
+            signAndSubmitTransaction,
+            moduleId,
+            state.network_value,
+            activeTontine.address,
+          );
+          await onTxnSuccess({
+            toast,
+            queryClient,
+            activeTontine,
+            title: "Claimed funds",
+            description:
+              "You have successfully claimed the funds of the tontine.",
+          });
+        } catch (e) {
+          onTxnFailure({
+            toast,
+            title: "Failed to claim funds",
+            description: `Failed to claim the funds of the tontine: ${e}`,
+          });
+        } finally {
+          setWaitingForTransaction(false);
+        }
+      }}
+    >
+      Claim
+    </Button>
+  </Tooltip>
+  );
+
+  const unlockButton = (
+    <Tooltip label={unlockTooltip}>
+    <Button
+      colorScheme="blue"
+      isDisabled={unlockDisabled}
+      onClick={async () => {
+        setWaitingForTransaction(true);
+        try {
+          await unlock(
+            signAndSubmitTransaction,
+            moduleId,
+            state.network_value,
+            activeTontine.address,
+          );
+          await onTxnSuccess({
+            toast,
+            queryClient,
+            activeTontine,
+            title: "Unlocked funds",
+            description:
+              "You have successfully unlocked the staked funds.",
+          });
+        } catch (e) {
+          onTxnFailure({
+            toast,
+            title: "Failed to unlock funds",
+            description: `Failed to unlock the staked funds: ${e}`,
+          });
+        } finally {
+          setWaitingForTransaction(false);
+        }
+      }}
+    >
+      Unlock
+    </Button>
+  </Tooltip>
+  );
+
+  console.log("heeeeeeeeeeee", stakeData?.active);
 
   const withdrawModal = (
     <Modal isOpen={withdrawIsOpen} onClose={withdrawOnClose}>
@@ -658,41 +759,7 @@ export function PrimaryActions({
               Check in
             </Button>
           </Tooltip>
-          <Tooltip label={claimTooltip}>
-            <Button
-              colorScheme="blue"
-              isDisabled={claimDisabled}
-              onClick={async () => {
-                setWaitingForTransaction(true);
-                try {
-                  await claim(
-                    signAndSubmitTransaction,
-                    moduleId,
-                    state.network_value,
-                    activeTontine.address,
-                  );
-                  await onTxnSuccess({
-                    toast,
-                    queryClient,
-                    activeTontine,
-                    title: "Claimed funds",
-                    description:
-                      "You have successfully claimed the funds of the tontine.",
-                  });
-                } catch (e) {
-                  onTxnFailure({
-                    toast,
-                    title: "Failed to claim funds",
-                    description: `Failed to claim the funds of the tontine: ${e}`,
-                  });
-                } finally {
-                  setWaitingForTransaction(false);
-                }
-              }}
-            >
-              Claim
-            </Button>
-          </Tooltip>
+          {stakeData?.active == 0 ? claimButton : unlockButton}
           <Tooltip label={executeFallbackTooltip}>
             <Button
               colorScheme="blue"

@@ -1,8 +1,6 @@
-import { AptosClient, Provider, Types } from "aptos";
+import { AptosClient, Types } from "aptos";
 import { withResponseError } from "./client";
-import { Network } from "aptos";
 import { NetworkName } from "../constants";
-import { getShortAddress } from "../utils";
 
 export function getLedgerInfoWithoutResponseError(
   nodeUrl: string,
@@ -77,6 +75,31 @@ export async function getOverallStatus(
   console.log("getOverallStatus payload", JSON.stringify(payload));
   const response = await client.view(payload);
   return response[0] as any;
+}
+
+export type StakeData = {
+  active: number;
+  inactive: number;
+  pendingInactive: number;
+}
+
+export async function getStakeData(
+  tontineAddress: string,
+  moduleId: string,
+  nodeUrl: string,
+): Promise<StakeData> {
+  const client = new AptosClient(nodeUrl);
+  const payload: Types.ViewRequest = {
+    function: `${moduleId}::get_stake_data`,
+    type_arguments: [],
+    arguments: [tontineAddress],
+  };
+  const response = await client.view(payload);
+  return {
+    active: response[0] as number,
+    inactive: response[1] as number,
+    pendingInactive: response[2] as number,
+  }
 }
 
 export async function getAnsName(

@@ -27,6 +27,12 @@ export const moduleLocations = {
   },
 };
 
+export const indexerUrls = {
+  mainnet: "https://indexer-mainnet.gcp.aptosdev.com/v1/graphql",
+  testnet: "https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql",
+  local: "none",
+};
+
 // Remove trailing slashes
 for (const key of Object.keys(networks)) {
   const networkName = key as NetworkName;

@@ -28,7 +28,7 @@ export const onTxnSuccess = async ({
   // Also invalidate the tontine membership query so the sidebar will be reloaded.
   // https://tanstack.com/query/v4/docs/react/guides/query-invalidation
   // We wait 1.5 seconds for the indexer processor to pick up the transaction.
-  await new Promise((r) => setTimeout(r, 1500));
+  await new Promise((r) => setTimeout(r, 2000));
   queryClient.invalidateQueries({ queryKey: activeTontine.address });
   queryClient.invalidateQueries({ queryKey: TONTINE_MEMBERSHIP_QUERY_KEY });
 };

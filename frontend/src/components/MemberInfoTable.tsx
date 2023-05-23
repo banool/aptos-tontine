@@ -75,9 +75,6 @@ export function MemberInfoTable({
     tontineData.member_data.data,
   );
 
-  console.log("memberDatas:");
-  console.log(memberDatas);
-
   const createdAt: number = parseInt(tontineData.creation_time_secs);
   const checkInFrequencySecs: number = parseInt(
     tontineData.config.check_in_frequency_secs,
@@ -128,13 +125,11 @@ export function MemberInfoTable({
 
   var rows = [];
   for (const [memberAddress, memberData] of memberDatas) {
-    console.log("memberData:", JSON.stringify(memberData, null, 2));
     const ansLookup = names?.find((lookup) => lookup.address === memberAddress);
     const lastCheckIn =
       memberData.last_check_in_time_secs.vec.length > 0
         ? parseInt(memberData.last_check_in_time_secs.vec[0])
         : undefined;
-    console.log("lastCheckIn:", lastCheckIn);
     const isUser = memberAddress === userAddress;
     const memberStatus = memberStatusesData?.get(memberAddress);
     var nameText;
@@ -193,7 +188,6 @@ export function MemberInfoTable({
       fourthColumnComponent = <Text>N/A</Text>;
     } else {
       const nextCheckIn = (lastCheckIn ?? createdAt) + checkInFrequencySecs;
-      console.log("nextCheckIn", nextCheckIn);
       const nextCheckInText = new Date(nextCheckIn * 1000).toLocaleString();
       fourthColumnComponent = <Text>{nextCheckInText}</Text>;
     }
