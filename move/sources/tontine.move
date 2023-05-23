@@ -19,11 +19,6 @@ module addr::tontine05 {
     use aptos_std::object::{Self, DeleteRef, Object};
     use dport_std::simple_map::{Self, SimpleMap};
 
-    #[test_only]
-    use std::timestamp;
-    #[test_only]
-    use aptos_framework::coin::MintCapability;
-
     /// The `invitees` list was empty.
     const E_CREATION_INVITEES_EMPTY: u64 = 1;
 
@@ -46,6 +41,9 @@ module addr::tontine05 {
 
     /// There was no delegation pool at the specified address.
     const E_CREATION_NO_DELEGATION_POOL: u64 = 7;
+
+    /// The required minimum was too small to allow for staking.
+    const E_CREATION_MINIMUM_TOO_SMALL: u64 = 8;
 
     /// Tried to interact with an account with no TontineStore.
     const E_TONTINE_STORE_NOT_FOUND: u64 = 10;
@@ -404,6 +402,12 @@ module addr::tontine05 {
             assert!(
                 claim_window_secs > staking_config::get_recurring_lockup_duration(&staking_config::get()) * 2,
                 error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL),
+            );
+            // Assert that the minumum contribution is high enough for staking.
+            // todo: Find a way to access this constant though a function from the module.
+            assert!(
+                per_member_amount_octa >= 1000000000,
+                error::invalid_argument(E_CREATION_MINIMUM_TOO_SMALL),
             );
         };
 
@@ -826,24 +830,9 @@ module addr::tontine05 {
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
-        // If the funds were staked, withdraw any funds from the stake pool. If the
-        // funds cannot be withdrawn, unlock hasn't been called yet / was called too
-        // recently, in which case we abort.
-        if (option::is_some(&tontine_.config.stake_with)) {
-            let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
-            let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
-            let pool_address = *option::borrow(&tontine_.config.stake_with);
-            let (can_withdraw, to_withdraw) = delegation_pool::get_pending_withdrawal(pool_address, resource_acc_addr);
-
-            // Assert there is something to withdraw.
-            assert!(can_withdraw, error::invalid_argument(E_NO_FUNDS_TO_WITHDRAW));
-
-            delegation_pool::withdraw(
-                &resource_acc_signer,
-                pool_address,
-                to_withdraw,
-            );
-        };
+        // Withdraw stake if funds were staked in the first place. If the funds can't
+        // be withdrawn yet this will fail.
+        withdraw_stake(tontine_);
 
         // Transfer all funds in the resource account to the caller.
         let len = simple_map::length(&tontine_.member_data);
@@ -875,6 +864,10 @@ module addr::tontine05 {
         assert_overall_status(tontine, allowed);
 
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
+
+        // Withdraw stake if funds were staked in the first place. If the funds can't
+        // be withdrawn yet this will fail.
+        withdraw_stake(tontine_);
 
         if (tontine_.config.fallback_policy.policy == TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS) {
             return_funds_to_members(tontine_);
@@ -912,7 +905,7 @@ module addr::tontine05 {
         let tontine_ = move_from<Tontine>(object::object_address(&tontine));
 
         // Return any funds to the members of the tontine. This is only relevant if
-        // we're destroying a tontine in staging.
+        // we're destroying a tontine in the staging state.
         return_funds_to_members(&mut tontine_);
 
         // Take all the fields out of the Tontine. Immediately drop those that can
@@ -1023,6 +1016,27 @@ module addr::tontine05 {
 
         // Account for the withdrawal of the funds.
         depositor_data.contributed_octa = depositor_data.contributed_octa - amount_octa;
+    }
+
+    /// If the funds were staked, withdraw any funds from the stake pool. If the
+    /// funds cannot be withdrawn, unlock hasn't been called yet / was called too
+    /// recently, in which case we abort.
+    inline fun withdraw_stake(tontine_: &Tontine) {
+        if (option::is_some(&tontine_.config.stake_with)) {
+            let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
+            let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+            let pool_address = *option::borrow(&tontine_.config.stake_with);
+            let (can_withdraw, to_withdraw) = delegation_pool::get_pending_withdrawal(pool_address, resource_acc_addr);
+
+            // Assert there is something to withdraw.
+            assert!(can_withdraw, error::invalid_argument(E_NO_FUNDS_TO_WITHDRAW));
+
+            delegation_pool::withdraw(
+                &resource_acc_signer,
+                pool_address,
+                to_withdraw,
+            );
+        };
     }
 
     /// Assert the caller is in the tontine.
@@ -1220,30 +1234,53 @@ module addr::tontine05 {
     ///////////////////////////////////////////////////////////////////////////////////
 
     #[test_only]
-    fun create_test_account(
-        mint_cap: &MintCapability<AptosCoin>,
-        account: &signer,
-    ) {
-        account::create_account_for_test(signer::address_of(account));
-        coin::register<AptosCoin>(account);
-        let coins = coin::mint<AptosCoin>(100000, mint_cap);
-        coin::deposit(signer::address_of(account), coins);
-    }
+    use std::timestamp;
+    #[test_only]
+    use aptos_framework::aptos_coin;
 
     #[test_only]
-    fun get_mint_cap(
-        aptos_framework: &signer
-    ): MintCapability<AptosCoin> {
-        let (burn_cap, freeze_cap, mint_cap) = coin::initialize<AptosCoin>(
-            aptos_framework,
-            string::utf8(b"TC"),
-            string::utf8(b"TC"),
-            8,
-            false,
-        );
-        coin::destroy_freeze_cap(freeze_cap);
-        coin::destroy_burn_cap(burn_cap);
-        mint_cap
+    const CHECK_IN_FREQUENCY_SECS: u64 = 60 * 60 * 24 * 30;
+
+    #[test_only]
+    const CLAIM_WINDOW_SECS: u64 = 60 * 60 * 24 * 60;
+
+    #[test_only]
+    const ONE_APT: u64 = 100000000;
+
+    #[test_only]
+    const STARTING_BALANCE: u64 = 50 * 100000000;
+
+    #[test_only]
+    const REQUIRED_CONTRIBUTION: u64 = 20 * 100000000;
+
+    #[test_only]
+    const HALF_REQUIRED_CONTRIBUTION: u64 = 10 * 100000000;
+
+    #[test_only]
+    const CONSENSUS_KEY_1: vector<u8> = x"8a54b92288d4ba5073d3a52e80cc00ae9fbbc1cc5b433b46089b7804c38a76f00fc64746c7685ee628fc2d0b929c2294";
+    #[test_only]
+    const CONSENSUS_POP_1: vector<u8> = x"a9d6c1f1270f2d1454c89a83a4099f813a56dc7db55591d46aa4e6ccae7898b234029ba7052f18755e6fa5e6b73e235f14efc4e2eb402ca2b8f56bad69f965fc11b7b25eb1c95a06f83ddfd023eac4559b6582696cfea97b227f4ce5bdfdfed0";
+
+    #[test_only]
+    /// Create a test account with some funds.
+    fun create_test_account(
+        aptos_framework: &signer,
+        account: &signer,
+    ) {
+        if (!aptos_coin::has_mint_capability(aptos_framework)) {
+            // If aptos_framework doesn't have the mint cap it means we need to do some
+            // initialization. This function will initialize AptosCoin and store the
+            // mint cap in aptos_framwork. These capabilities that are returned from the
+            // function are just copies. We don't need them since we use aptos_coin::mint
+            // to mint coins, which uses the mint cap from the MintCapStore on
+            // aptos_framework. So we burn them.
+            let (burn_cap, mint_cap) = aptos_coin::initialize_for_test(aptos_framework);
+            coin::destroy_burn_cap(burn_cap);
+            coin::destroy_mint_cap(mint_cap);
+        };
+        account::create_account_for_test(signer::address_of(account));
+        coin::register<AptosCoin>(account);
+        aptos_coin::mint(aptos_framework, signer::address_of(account), STARTING_BALANCE);
     }
 
     #[test_only]
@@ -1256,23 +1293,12 @@ module addr::tontine05 {
     }
 
     #[test_only]
-    const START_TIME: u64 = 100;
-
-    #[test_only]
-    const CHECK_IN_FREQUENCY_SECS: u64 = 60 * 60 * 24 * 30;
-
-    #[test_only]
-    const CLAIM_WINDOW_SECS: u64 = 60 * 60 * 24 * 60;
-
-    #[test_only]
     fun create_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> {
-        set_global_time(aptos_framework, START_TIME);
+        set_global_time(aptos_framework, 100);
 
-        let mint_cap = get_mint_cap(aptos_framework);
-        create_test_account(&mint_cap, creator);
-        create_test_account(&mint_cap, friend1);
-        create_test_account(&mint_cap, friend2);
-        coin::destroy_mint_cap(mint_cap);
+        create_test_account(aptos_framework, creator);
+        create_test_account(aptos_framework, friend1);
+        create_test_account(aptos_framework, friend2);
 
         let friend1_addr = signer::address_of(friend1);
         let friend2_addr = signer::address_of(friend2);
@@ -1281,13 +1307,46 @@ module addr::tontine05 {
         vector::push_back(&mut invitees, friend1_addr);
         vector::push_back(&mut invitees, friend2_addr);
 
-        create_(creator, string::utf8(b"test"), invitees, CHECK_IN_FREQUENCY_SECS, CLAIM_WINDOW_SECS, 10000, TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS, option::none())
+        create_(
+            creator,
+            string::utf8(b"test"),
+            invitees,
+            CHECK_IN_FREQUENCY_SECS,
+            CLAIM_WINDOW_SECS,
+            REQUIRED_CONTRIBUTION,
+            TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS,
+            option::none(),
+        )
     }
 
     #[test_only]
-    fun create_and_contribute_to_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
-        let tontine = create_tontine(creator, friend1, friend2, aptos_framework);
+    fun create_tontine_with_staking(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer, pool_address: address): Object<Tontine> {
+        create_test_account(aptos_framework, creator);
+        create_test_account(aptos_framework, friend1);
+        create_test_account(aptos_framework, friend2);
 
+        let friend1_addr = signer::address_of(friend1);
+        let friend2_addr = signer::address_of(friend2);
+
+        let invitees = vector::empty();
+        vector::push_back(&mut invitees, friend1_addr);
+        vector::push_back(&mut invitees, friend2_addr);
+
+        create_(
+            creator,
+            string::utf8(b"test"),
+            invitees,
+            CHECK_IN_FREQUENCY_SECS,
+            CLAIM_WINDOW_SECS,
+            REQUIRED_CONTRIBUTION,
+            TONTINE_FALLBACK_POLICY_RETURN_TO_MEMBERS,
+            option::some(pool_address),
+        )
+    }
+
+    #[test_only]
+    /// Progress a tontine to the point where everyone has contributed.
+    fun contribute_to_tontine(creator: &signer, friend1: &signer, friend2: &signer, _aptos_framework: &signer, tontine: Object<Tontine>): Object<Tontine> acquires Tontine {
         let creator_addr = signer::address_of(creator);
         let friend1_addr = signer::address_of(friend1);
         let friend2_addr = signer::address_of(friend2);
@@ -1302,30 +1361,43 @@ module addr::tontine05 {
 
         // Contribute less than the required amount, see that they will still be
         // marked as needing to contribute funds.
-        contribute(friend1, tontine, 5000);
+        contribute(friend1, tontine, HALF_REQUIRED_CONTRIBUTION);
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend1_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
 
         // Contribute the rest and see that they get marked as ready.
-        contribute(friend1, tontine, 5000);
+        contribute(friend1, tontine, HALF_REQUIRED_CONTRIBUTION);
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend1_addr) == MEMBER_STATUS_READY, 0);
 
         // See that the other members still have the same status.
-        contribute(friend1, tontine, 5000);
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &creator_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend2_addr) == MEMBER_STATUS_MUST_CONTRIBUTE_FUNDS, 0);
 
         // See that the tontine overall status indicates it can be locked once
         // all members contribute.
-        contribute(creator, tontine, 10000);
-        contribute(friend2, tontine, 10000);
+        contribute(creator, tontine, REQUIRED_CONTRIBUTION);
+        contribute(friend2, tontine, REQUIRED_CONTRIBUTION);
         assert!(get_overall_status(tontine) == OVERALL_STATUS_CAN_BE_LOCKED, 0);
+
+        // Confirm that the correct amount of funds are in the tontine.
+        let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        assert!(coin::balance<AptosCoin>(resource_acc_addr) == REQUIRED_CONTRIBUTION * 3, 0);
+
+        // Confirm that the contribution amounts are correct for all members.
+        let creator_addr = signer::address_of(creator);
+        let friend1_addr = signer::address_of(friend1);
+        let friend2_addr = signer::address_of(friend2);
+        assert!(simple_map::borrow(&tontine_.member_data, &creator_addr).contributed_octa == REQUIRED_CONTRIBUTION, 0);
+        assert!(simple_map::borrow(&tontine_.member_data, &friend1_addr).contributed_octa == REQUIRED_CONTRIBUTION, 0);
+        assert!(simple_map::borrow(&tontine_.member_data, &friend2_addr).contributed_octa == REQUIRED_CONTRIBUTION, 0);
 
         tontine
     }
 
     #[test_only]
-    fun create_and_lock_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(creator, friend1, friend2, aptos_framework);
+    /// Progress a tontine to the point where it has been locked.
+    fun lock_tontine(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer, tontine: Object<Tontine>): Object<Tontine> acquires Tontine {
+        let tontine = contribute_to_tontine(creator, friend1, friend2, aptos_framework, tontine);
 
         // See that we can lock the tontine now, and anyone in the tontine can do it.
         lock(friend1, tontine);
@@ -1336,10 +1408,11 @@ module addr::tontine05 {
         tontine
     }
 
-    // Create a tontine, lock it, and advance it to the point where only one person is still eligible.
     #[test_only]
-    fun create_tontine_only_one_remains(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
-        let tontine = create_and_lock_tontine(creator, friend1, friend2, aptos_framework);
+    /// Progress a tontine to the point where it has been locked and now only one member
+    /// has checked in frequently enough.
+    fun only_one_remains(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer, tontine: Object<Tontine>): Object<Tontine> acquires Tontine {
+        let tontine = lock_tontine(creator, friend1, friend2, aptos_framework, tontine);
 
         let creator_addr = signer::address_of(creator);
         let friend1_addr = signer::address_of(friend1);
@@ -1351,7 +1424,7 @@ module addr::tontine05 {
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend2_addr) == MEMBER_STATUS_STILL_ELIGIBLE, 0);
 
         // Advance the time to 1 second before the required check in.
-        set_global_time(aptos_framework, START_TIME + CHECK_IN_FREQUENCY_SECS - 1);
+        set_global_time(aptos_framework, now_seconds() + CHECK_IN_FREQUENCY_SECS - 1);
 
         // See that everyone is considered eligible still.
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &creator_addr) == MEMBER_STATUS_STILL_ELIGIBLE, 0);
@@ -1363,7 +1436,7 @@ module addr::tontine05 {
         check_in(friend1, tontine);
 
         // Advance the time past the original required check in time.
-        set_global_time(aptos_framework, START_TIME + CHECK_IN_FREQUENCY_SECS + 1);
+        set_global_time(aptos_framework, now_seconds() + 2);
 
         // See that friend2 is no longer eligible but the rest are still eligible.
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &creator_addr) == MEMBER_STATUS_STILL_ELIGIBLE, 0);
@@ -1371,13 +1444,13 @@ module addr::tontine05 {
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &friend2_addr) == MEMBER_STATUS_INELIGIBLE, 0);
 
         // Advance the time to roughly middle of the check in window.
-        set_global_time(aptos_framework, START_TIME + CHECK_IN_FREQUENCY_SECS + 1 + CHECK_IN_FREQUENCY_SECS / 2);
+        set_global_time(aptos_framework, now_seconds() + CHECK_IN_FREQUENCY_SECS / 2);
 
         // Have only friend1 check in.
         check_in(friend1, tontine);
 
         // Advance the time to after the end of this check in window.
-        set_global_time(aptos_framework, START_TIME + CHECK_IN_FREQUENCY_SECS + CHECK_IN_FREQUENCY_SECS + 1);
+        set_global_time(aptos_framework, now_seconds() + CHECK_IN_FREQUENCY_SECS / 2 + 1);
 
         // See that only friend1 is still eligible.
         assert!(*simple_map::borrow(&get_member_statuses(tontine), &creator_addr) == MEMBER_STATUS_INELIGIBLE, 0);
@@ -1390,14 +1463,14 @@ module addr::tontine05 {
         tontine
     }
 
-    // Create a tontine and let it get to the point where one person was eligible to
-    // claim funds but failed to do so within the claim window.
     #[test_only]
-    fun create_tontine_no_one_remains(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer): Object<Tontine> acquires Tontine {
-        let tontine = create_tontine_only_one_remains(creator, friend1, friend2, aptos_framework);
+    /// Progress a tontine to the point where one person was eligible to claim the funds
+    /// failed to do so within the claim window.
+    fun no_one_remains(creator: &signer, friend1: &signer, friend2: &signer, aptos_framework: &signer, tontine: Object<Tontine>): Object<Tontine> acquires Tontine {
+        let tontine = only_one_remains(creator, friend1, friend2, aptos_framework, tontine);
 
         // Advance time way in the future.
-        set_global_time(aptos_framework, 10000000000);
+        set_global_time(aptos_framework, 100000000000);
 
         let friend1_addr = signer::address_of(friend1);
 
@@ -1434,7 +1507,7 @@ module addr::tontine05 {
 
         let before = coin::balance<AptosCoin>(friend1_addr);
 
-        contribute(&friend1, tontine, 10000);
+        contribute(&friend1, tontine, STARTING_BALANCE);
 
         leave(&friend1, tontine);
 
@@ -1452,7 +1525,7 @@ module addr::tontine05 {
 
         let before = coin::balance<AptosCoin>(friend1_addr);
 
-        contribute(&friend1, tontine, 10000);
+        contribute(&friend1, tontine, STARTING_BALANCE);
 
         remove_member(&creator, tontine, friend1_addr);
 
@@ -1524,7 +1597,13 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196672, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_lock_after_invite_member(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = contribute_to_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Add a new member to the tontine.
         invite_member(&creator, tontine, @0x987654321);
@@ -1539,7 +1618,13 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196672, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_lock_after_remove_member(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = contribute_to_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Remove a member from the tontine.
         let friend1_addr = signer::address_of(&friend1);
@@ -1554,7 +1639,13 @@ module addr::tontine05 {
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_can_lock_after_reconfirmation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = contribute_to_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Remove a member from the tontine.
         let friend1_addr = signer::address_of(&friend1);
@@ -1575,7 +1666,13 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196620, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_lock_if_removed_after_reconfirmation(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = contribute_to_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Remove new member from the tontine.
         let friend1_addr = signer::address_of(&friend1);
@@ -1591,7 +1688,13 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196620, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_contribute_after_leaving(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_contribute_to_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = contribute_to_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         leave(&friend1, tontine);
 
@@ -1602,27 +1705,51 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196675, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_contribute_after_lock(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_lock_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = lock_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
         contribute(&friend1, tontine, 1);
     }
 
     #[expected_failure(abort_code = 196675, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_withdraw_after_lock(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_lock_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = lock_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
         withdraw(&friend1, tontine, 1);
     }
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_check_in(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
     }
 
     #[expected_failure(abort_code = 196740, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_check_in_if_too_late(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         // In create_tontine_only_one_remains, everyone but friend1 failed to check in in time.
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Confirm that creator can no longer check in.
         check_in(&creator, tontine);
@@ -1631,7 +1758,13 @@ module addr::tontine05 {
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_claim(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         // In create_tontine_only_one_remains, everyone but friend1 failed to check in in time.
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // Confirm that friend1 can claim the funds.
         claim(&friend1, tontine);
@@ -1654,7 +1787,13 @@ module addr::tontine05 {
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_others_cannot_claim(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         // In create_tontine_only_one_remains, everyone but friend1 failed to check in in time.
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // This should fail, friend2 is not eligible claim the funds.
         claim(&friend2, tontine);
@@ -1665,10 +1804,16 @@ module addr::tontine05 {
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_claim_within_window(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         // In create_tontine_only_one_remains, everyone but friend1 failed to check in in time.
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // This is when friend1 last checked in.
-        let last_check_in_time = START_TIME + CHECK_IN_FREQUENCY_SECS + CHECK_IN_FREQUENCY_SECS / 2;
+        let last_check_in_time = now_seconds() - (CHECK_IN_FREQUENCY_SECS / 2 + 1);
 
         set_global_time(&aptos_framework, last_check_in_time + CLAIM_WINDOW_SECS - 1);
 
@@ -1678,10 +1823,16 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196743, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_claim_outside_of_claim_window(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
 
         // This is when friend1 last checked in.
-        let last_check_in_time = START_TIME + CHECK_IN_FREQUENCY_SECS + CHECK_IN_FREQUENCY_SECS / 2;
+        let last_check_in_time = now_seconds() - (CHECK_IN_FREQUENCY_SECS / 2 + 1);
 
         set_global_time(&aptos_framework, last_check_in_time + CLAIM_WINDOW_SECS + 1);
 
@@ -1690,7 +1841,14 @@ module addr::tontine05 {
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_execute_fallback(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_tontine_no_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = no_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
+
         execute_fallback(tontine);
     }
 
@@ -1703,20 +1861,32 @@ module addr::tontine05 {
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_destroy_staging_contributed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
         let tontine = create_tontine(&creator, &friend1, &friend2, &aptos_framework);
-        contribute(&friend1, tontine, 1000);
+        contribute(&friend1, tontine, STARTING_BALANCE);
         destroy(&creator, tontine);
     }
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_destroy_claimed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_tontine_only_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
         claim(&friend1, tontine);
         destroy(&creator, tontine);
     }
 
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_destroy_fallback_executed(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_tontine_no_one_remains(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = no_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
         execute_fallback(tontine);
         destroy(&creator, tontine);
     }
@@ -1724,8 +1894,137 @@ module addr::tontine05 {
     #[expected_failure(abort_code = 196675, location = Self)]
     #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, aptos_framework = @aptos_framework)]
     fun test_cannot_destroy_locked(creator: signer, friend1: signer, friend2: signer, aptos_framework: signer) acquires Tontine {
-        let tontine = create_and_lock_tontine(&creator, &friend1, &friend2, &aptos_framework);
+        let tontine = lock_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine(&creator, &friend1, &friend2, &aptos_framework),
+        );
         destroy(&creator, tontine);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    // Test tontine staking logic.
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    #[test_only]
+    /// Initializes a delegation pool and returns its address.
+    fun initialize_delegation_pool(
+        aptos_framework: &signer,
+        validator: &signer,
+    ): address {
+        delegation_pool::initialize_for_test(aptos_framework);
+        delegation_pool::initialize_test_validator(validator, 200 * ONE_APT, true, true);
+        delegation_pool::end_aptos_epoch();
+        delegation_pool::get_owned_pool_address(signer::address_of(validator))
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_create(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address);
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_lock(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) acquires Tontine {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        let tontine = lock_tontine(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address),
+        );
+
+        // Assert that no funds remain in the resource account now.
+        let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        assert!(coin::balance<AptosCoin>(resource_acc_addr) == 0, 0);
+    }
+
+    #[expected_failure(abort_code = 65560, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_cannot_immediately_withdraw(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) acquires Tontine {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address),
+        );
+
+        // Assert that no funds remain in the resource account still.
+        let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        assert!(coin::balance<AptosCoin>(resource_acc_addr) == 0, 0);
+
+        // See that claiming funds will fail because the funds staked are still locked
+        // up. We needed to call unlock first.
+        claim(&friend1, tontine);
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_claim_after_unlock(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) acquires Tontine {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        let tontine = only_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address),
+        );
+
+        // Unlock funds.
+        unlock(tontine);
+
+        // I can't quite figure out how to properly simulate time advancing and
+        // updating the pool stake as appropriate. So we just call this test function
+        // that ends the epoch.
+        delegation_pool::end_aptos_epoch();
+
+        // See that claiming funds will fail because the funds staked are still locked
+        // up. We needed to call unlock first.
+        claim(&friend1, tontine);
+    }
+
+    #[expected_failure(abort_code = 65560, location = Self)]
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_cannot_immediately_execute_fallback(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) acquires Tontine {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        let tontine = no_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address),
+        );
+
+        // See that claiming funds will fail because the funds staked are still locked
+        // up. We needed to call unlock first.
+        execute_fallback(tontine);
+    }
+
+    #[test(creator = @0x123, friend1 = @0x456, friend2 = @0x789, validator = @0x777, aptos_framework = @aptos_framework)]
+    fun test_staking_execute_fallback_after_unlock(creator: signer, friend1: signer, friend2: signer, validator: signer, aptos_framework: signer) acquires Tontine {
+        let pool_address = initialize_delegation_pool(&aptos_framework, &validator);
+        let tontine = no_one_remains(
+            &creator,
+            &friend1,
+            &friend2,
+            &aptos_framework,
+            create_tontine_with_staking(&creator, &friend1, &friend2, &aptos_framework, pool_address),
+        );
+
+        // Unlock funds.
+        unlock(tontine);
+
+        delegation_pool::end_aptos_epoch();
+
+        // See that claiming funds will fail because the funds staked are still locked
+        // up. We needed to call unlock first.
+        execute_fallback(tontine);
     }
 }
 
