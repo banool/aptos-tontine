@@ -38,6 +38,11 @@ export function ConfigTable({
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  const delegationPoolAddress =
+    tontineData.config.delegation_pool.vec.length > 0
+      ? tontineData.config.delegation_pool.vec[0]
+      : null;
+
   return (
     <Table variant="simple">
       <Tbody>
@@ -166,6 +171,23 @@ export function ConfigTable({
             {tontineData.funds_claimed_secs > 0
               ? new Date(tontineData.funds_claimed_secs * 1000).toLocaleString()
               : "Funds not claimed yet"}
+          </Td>
+        </Tr>
+        <Tr>
+          <Th>
+            <Text>{"Delegation pool "}</Text>
+          </Th>
+          <Td>
+            {delegationPoolAddress ? (
+              <SelectableTooltip
+                textComponent={
+                  <Text>{getShortAddress(delegationPoolAddress)}</Text>
+                }
+                label={delegationPoolAddress}
+              />
+            ) : (
+              "N/A"
+            )}
           </Td>
         </Tr>
       </Tbody>

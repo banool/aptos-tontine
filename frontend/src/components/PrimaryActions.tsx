@@ -23,7 +23,6 @@ import {
 } from "@chakra-ui/react";
 import {
   aptToOcta,
-  getContributionAmount,
   octaToAptNormal,
   simpleMapArrayToMap,
   validateAptString,
@@ -134,7 +133,7 @@ export function PrimaryActions({
 
   const contributionAmount =
     tontineData && account
-      ? getContributionAmount(tontineData.contributions, account.address)
+      ? simpleMapArrayToMap(tontineData.member_data.data).get(account.address)
       : 0;
 
   const remainingContribution = tontineData
@@ -291,10 +290,10 @@ export function PrimaryActions({
   ) {
     checkInDisabled = true;
     checkInTooltip = "Tontine is not active yet, you must lock it.";
-  } else if (
-    memberStatus !== MEMBER_STATUS_STILL_ELIGIBLE &&
-    memberStatus !== MEMBER_STATUS_CAN_CLAIM_FUNDS
-  ) {
+  } else if (memberStatus !== MEMBER_STATUS_CAN_CLAIM_FUNDS) {
+    checkInDisabled = true;
+    checkInTooltip = "You can claim the funds so can't check in anymore.";
+  } else if (memberStatus !== MEMBER_STATUS_STILL_ELIGIBLE) {
     checkInDisabled = true;
     checkInTooltip = "You are no longer eligible to check in.";
   }

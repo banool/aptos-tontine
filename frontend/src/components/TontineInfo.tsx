@@ -1,7 +1,5 @@
-import { Box, Switch, Text, Flex, Heading } from "@chakra-ui/react";
-import { TontineMembership } from "../api/hooks/useGetTontineMembership";
+import { Box, Text, Heading } from "@chakra-ui/react";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { useState } from "react";
 import { simpleMapArrayToMap } from "../utils";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useGetAccountResources } from "../api/hooks/useGetAccountResources";

@@ -23,6 +23,7 @@ export async function create(
   claimWindowSecs: number,
   contributionAmountOcta: number,
   fallbackPolicy: number,
+  { delegationPool }: { delegationPool?: string } = {},
 ) {
   const transaction = {
     type: "entry_function_payload",
@@ -35,6 +36,7 @@ export async function create(
       claimWindowSecs,
       contributionAmountOcta,
       fallbackPolicy,
+      delegationPool,
     ],
   };
   await submitTransaction(signAndSubmitTransaction, fullnodeUrl, transaction);

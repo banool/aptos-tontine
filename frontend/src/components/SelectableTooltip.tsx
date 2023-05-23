@@ -12,9 +12,11 @@ import { CopyIcon } from "@chakra-ui/icons";
 export function SelectableTooltip({
   textComponent,
   label,
+  options,
 }: {
   textComponent: ReactNode;
   label: string;
+  options?: { hideButton: boolean };
 }) {
   // https://stackoverflow.com/questions/76252010/how-to-change-content-direction-of-popover
   return (
@@ -23,11 +25,13 @@ export function SelectableTooltip({
       <Portal>
         <PopoverContent>
           <PopoverBody>{label}</PopoverBody>
-          <Button
-            rightIcon={<CopyIcon />}
-            size="sm"
-            onClick={() => navigator.clipboard.writeText(label)}
-          />
+          {options?.hideButton ? null : (
+            <Button
+              rightIcon={<CopyIcon />}
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(label)}
+            />
+          )}
         </PopoverContent>
       </Portal>
     </Popover>

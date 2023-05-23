@@ -1,43 +1,27 @@
 import {
   Box,
   Button,
-  Checkbox,
-  CloseButton,
-  Flex,
   FormControl,
   FormErrorMessage,
   FormHelperText,
   FormLabel,
   HStack,
-  Heading,
   IconButton,
   Input,
-  NumberInput,
-  NumberInputField,
   Radio,
   RadioGroup,
-  Spacer,
   Spinner,
   Stack,
   Text,
-  Textarea,
   Tooltip,
-  VStack,
   useToast,
 } from "@chakra-ui/react";
 import { AddIcon, MinusIcon } from "@chakra-ui/icons";
-import { TontineMembership } from "../api/hooks/useGetTontineMembership";
-import { useGetAccountResource } from "../api/hooks/useGetAccountResource";
 import { getModuleId, useGlobalState } from "../GlobalState";
-import { useState } from "react";
-import {
-  FALLBACK_POLICY_RETURN_TO_MEMBERS,
-  FALLBACK_POLICY_SEND_TO_GIVING_APT,
-} from "../constants";
+import { FALLBACK_POLICY_RETURN_TO_MEMBERS } from "../constants";
 import {
   Field,
   Form,
-  Formik,
   FieldArray,
   useFormik,
   FormikProvider,
@@ -54,6 +38,7 @@ import {
 import { create } from "../api/transactions";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useQueryClient } from "react-query";
+import { SelectableTooltip } from "./SelectableTooltip";
 
 interface MyFormValues {
   description: string;
@@ -62,6 +47,7 @@ interface MyFormValues {
   checkInFrequency: number;
   claimWindow: number;
   fallbackPolicy: string;
+  delegationPool: string;
 }
 
 export function CreateTontine({}: {}) {
@@ -91,7 +77,27 @@ export function CreateTontine({}: {}) {
         }
       }
     });
+
+    var delegationPool;
+    if (values.delegationPool === "") {
+      // Entry functions can't take in Option so we represent None as 0x0.
+      delegationPool = "0x0";
+    } else if (isValidAccountAddress(values.delegationPool)) {
+      delegationPool = values.delegationPool;
+    } else {
+      // Lookup the invitee's address if it is an ANS name.
+      const ansAddressLookup = ansAddressLookups?.find(
+        (ans) => ans.name === values.delegationPool,
+      );
+      if (ansAddressLookup?.address !== undefined) {
+        delegationPool = ansAddressLookup.address;
+      } else {
+        throw "Invalid value for stake pool, validation should have caught this";
+      }
+    }
+
     const requiredContributionInOcta = aptToOcta(values.requiredContribution);
+
     try {
       await create(
         signAndSubmitTransaction,
@@ -103,6 +109,7 @@ export function CreateTontine({}: {}) {
         values.claimWindow,
         requiredContributionInOcta,
         parseInt(values.fallbackPolicy),
+        { delegationPool },
       );
       toast({
         title: "Tontine created",
@@ -126,30 +133,38 @@ export function CreateTontine({}: {}) {
     }
   };
 
+  const validateAddressInput = (value: string, blankOkay: boolean) => {
+    let error;
+    if (value === "" && !blankOkay) {
+      error = "Cannot be blank";
+    } else if (!isValidAccountAddress(value)) {
+      // Lookup the invitee's address if it is an ANS name.
+      const ansNameLookup = ansNameLookups?.find(
+        (ans) => ans.address === value,
+      );
+      if (ansNameLookup?.name === undefined) {
+        error = "Not a valid address or ANS name";
+      }
+    }
+    return error;
+  };
+
   // Form level validation. This is run in addition to all the field level validation.
   const validateValues = (values: MyFormValues) => {
     var errors: any = {};
     if (values.invitees.length === 0) {
       errors.invitees = "Must invite at least one person";
     } else {
+      let inviteesArrayErrors: string[] = [];
       values.invitees.forEach((invitee, index) => {
-        var inviteesArrayErrors = [];
-        if (invitee === "") {
-          inviteesArrayErrors[index] = "Cannot be blank";
-        }
-        if (!isValidAccountAddress(invitee)) {
-          // Lookup the invitee's address if it is an ANS name.
-          const ansNameLookup = ansNameLookups?.find(
-            (ans) => ans.address === invitee,
-          );
-          if (ansNameLookup?.name === undefined) {
-            inviteesArrayErrors[index] = "Not a valid address or ANS name";
-          }
-        }
-        if (inviteesArrayErrors.length > 0) {
-          errors.invitees = inviteesArrayErrors;
+        let error = validateAddressInput(invitee, false);
+        if (error) {
+          inviteesArrayErrors[index] = error;
         }
       });
+      if (inviteesArrayErrors.length > 0) {
+        errors.invitees = inviteesArrayErrors;
+      }
     }
     return errors;
   };
@@ -160,8 +175,9 @@ export function CreateTontine({}: {}) {
       invitees: [""],
       requiredContribution: 10,
       checkInFrequency: 60 * 60,
-      claimWindow: 60 * 60 * 2,
+      claimWindow: 60 * 60 * 24 * 30,
       fallbackPolicy: FALLBACK_POLICY_RETURN_TO_MEMBERS.toString(),
+      delegationPool: "",
     },
     onSubmit: handleSubmit,
     validate: validateValues,
@@ -412,14 +428,9 @@ export function CreateTontine({}: {}) {
                     form.setFieldValue(field.name, val);
                   }}
                 >
-                  <Stack direction="row">
+                  <Stack paddingBottom={4} direction="row">
                     <Radio value={FALLBACK_POLICY_RETURN_TO_MEMBERS.toString()}>
                       Return to members
-                    </Radio>
-                    <Radio
-                      value={FALLBACK_POLICY_SEND_TO_GIVING_APT.toString()}
-                    >
-                      Send to giving.apt
                     </Radio>
                   </Stack>
                 </RadioGroup>
@@ -428,6 +439,31 @@ export function CreateTontine({}: {}) {
                 </FormErrorMessage>
               </FormControl>
             )}
+          </Field>
+          <Field
+            name="delegationPool"
+            validate={(value: string) => validateAddressInput(value, true)}
+          >
+            {({ field, form }: { field: any; form: any }) => {
+              return (
+                <FormControl
+                  isInvalid={
+                    form.errors.delegationPool && form.touched.delegationPool
+                  }
+                >
+                  <FormLabel>
+                    {"Stake with delegation pool "}
+                    <SelectableTooltip
+                      label="The address of a delegation pool. This corresponds to the staking pool address here: https://explorer.aptoslabs.com/validators/delegation?network=mainnet. Not the operator address."
+                      textComponent={<sup>ⓘ</sup>}
+                      options={{ hideButton: true }}
+                    />
+                  </FormLabel>
+                  <Input w="75%" {...field} />
+                  <FormErrorMessage>{form.errors.description}</FormErrorMessage>
+                </FormControl>
+              );
+            }}
           </Field>
           <Box paddingTop={5}>
             <Button type="submit" isLoading={formik.isSubmitting}>

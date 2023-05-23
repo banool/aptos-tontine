@@ -13,17 +13,17 @@ export const moduleLocations = {
   mainnet: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine05",
+    name: "tontine07",
   },
   testnet: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine05",
+    name: "tontine07",
   },
   local: {
     address:
       "0xb078d693856a65401d492f99ca0d6a29a0c5c0e371bc2521570a86e40d95f823",
-    name: "tontine05",
+    name: "tontine07",
   },
 };
 
@@ -86,15 +86,12 @@ export const OVERALL_STATUS_FUNDS_CLAIMED: number = 69;
 export const OVERALL_STATUS_FUNDS_NEVER_CLAIMED: number = 70;
 export const OVERALL_STATUS_FALLBACK_EXECUTED: number = 71;
 
-export const FALLBACK_POLICY_RETURN_TO_MEMBERS: number = 0;
-export const FALLBACK_POLICY_SEND_TO_GIVING_APT: number = 1;
+export const FALLBACK_POLICY_RETURN_TO_MEMBERS: number = 1;
 
 export const getFallbackPolicyText = (fallbackPolicy: number) => {
   switch (fallbackPolicy) {
     case FALLBACK_POLICY_RETURN_TO_MEMBERS:
       return "Return to members";
-    case FALLBACK_POLICY_SEND_TO_GIVING_APT:
-      return "Send to giving.apt";
     default:
       return "Unknown";
   }

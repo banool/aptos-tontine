@@ -38,6 +38,12 @@ import { ActiveTontine } from "../pages/HomePage";
 import { onTxnFailure, onTxnSuccess } from "../api/helpers";
 import { useQueryClient } from "react-query";
 
+type MemberData = {
+  contributed_octa: string;
+  reconfirmation_required: boolean;
+  last_check_in_time_secs: { vec: string[] };
+};
+
 export function MemberInfoTable({
   tontineData,
   activeTontine,
@@ -65,14 +71,13 @@ export function MemberInfoTable({
 
   const members = tontineData.config.members;
   const { data: names } = useGetAnsNames(() => members);
-  const contributions: Map<string, any> = simpleMapArrayToMap(
-    tontineData.contributions.data,
+  const memberDatas: Map<string, MemberData> = simpleMapArrayToMap(
+    tontineData.member_data.data,
   );
-  const lastCheckIns: Map<string, any> = simpleMapArrayToMap(
-    tontineData.last_check_in_times_secs.data,
-  );
-  const reconfirmationRequiredAddresses: string[] =
-    tontineData.reconfirmation_required;
+
+  console.log("memberDatas:");
+  console.log(memberDatas);
+
   const createdAt: number = parseInt(tontineData.creation_time_secs);
   const checkInFrequencySecs: number = parseInt(
     tontineData.config.check_in_frequency_secs,
@@ -122,11 +127,14 @@ export function MemberInfoTable({
   }
 
   var rows = [];
-  for (var i = 0; i < members.length; i++) {
-    const memberAddress = members[i];
+  for (const [memberAddress, memberData] of memberDatas) {
+    console.log("memberData:", JSON.stringify(memberData, null, 2));
     const ansLookup = names?.find((lookup) => lookup.address === memberAddress);
-    const lastCheckInRaw = lastCheckIns.get(memberAddress);
-    const lastCheckIn = lastCheckInRaw ? parseInt(lastCheckInRaw) : undefined;
+    const lastCheckIn =
+      memberData.last_check_in_time_secs.vec.length > 0
+        ? parseInt(memberData.last_check_in_time_secs.vec[0])
+        : undefined;
+    console.log("lastCheckIn:", lastCheckIn);
     const isUser = memberAddress === userAddress;
     const memberStatus = memberStatusesData?.get(memberAddress);
     var nameText;
@@ -151,16 +159,16 @@ export function MemberInfoTable({
     */
 
     // Second column.
-    const contribution = contributions.get(memberAddress)?.value ?? 0;
+    const contribution = parseInt(memberData.contributed_octa);
 
     // Third column.
     const lastCheckInText =
       lastCheckIn === undefined
         ? "Never"
         : new Date(lastCheckIn * 1000).toLocaleString();
-    const reconfirmationRequired =
-      reconfirmationRequiredAddresses.includes(memberAddress);
-    const reconfirmationRequiredText = reconfirmationRequired ? "Yes" : "No";
+    const reconfirmationRequiredText = memberData.reconfirmation_required
+      ? "Yes"
+      : "No";
     var thirdColumnText;
     if (isLocked) {
       thirdColumnText = lastCheckInText;
