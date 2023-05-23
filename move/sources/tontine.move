@@ -3,7 +3,7 @@
 
 //! See the README for more information about how this tontine module works.
 
-module addr::tontine06 {
+module addr::tontine07 {
     use std::error;
     use std::option::{Self, Option};
     use std::signer;
@@ -31,9 +31,7 @@ module addr::tontine06 {
     /// `check_in_frequency_secs` was out of the accepted range.
     const E_CREATION_CHECK_IN_FREQUENCY_OUT_OF_RANGE: u64 = 4;
 
-    /// `claim_window_secs` was too small. If the tontine is being configured to stake
-    /// funds to a delegation pool, the claim window needs to be large enough to allow
-    /// for unlocking the funds.
+    /// `claim_window_secs` was too small. If the tontine is being configured to stake funds to a delegation pool, the claim window needs to be large enough to allow for unlocking the funds.
     const E_CREATION_CLAIM_WINDOW_TOO_SMALL: u64 = 5;
 
     /// `fallback_policy` was invalid.
@@ -48,15 +46,13 @@ module addr::tontine06 {
     /// Tried to interact with an account with no TontineStore.
     const E_TONTINE_STORE_NOT_FOUND: u64 = 10;
 
-    /// Tried to get a Tontine from a TontineStore but there was nothing found with
-    /// the requested index.
+    /// Tried to get a Tontine from a TontineStore but there was nothing found with the requested index.
     const E_TONTINE_NOT_FOUND: u64 = 11;
 
     /// Tried to perform an action but the given caller is not in the tontine.
     const E_CALLER_NOT_IN_TONTINE: u64 = 12;
 
-    /// Tried to perform an action that relies on the member having contributed a
-    /// certain amount that they haven't actually contributed.
+    /// Tried to perform an action that relies on the member having contributed a certain amount that they haven't actually contributed.
     const E_INSUFFICIENT_CONTRIBUTION: u64 = 13;
 
     /// Tried to lock the tontine but the conditions aren't yet met.
@@ -277,7 +273,7 @@ module addr::tontine06 {
 
         /// If set, the funds of the tontine will staked in this delegated staking pool
         /// once the tontine is locked.
-        stake_with: Option<address>,
+        delegation_pool: Option<address>,
     }
 
     struct MemberData has store, drop {
@@ -344,12 +340,7 @@ module addr::tontine06 {
 
     struct FallbackExecutedEvent has store, drop {}
 
-    /// todo explain
-    /// testing.
-    // TODO: Use the TontineConfig struct directly when that is possible.
-    // TODO: Look into some kind of set for participiants instead of a vec.
-    // TODO: Find a way to assert members has no duplicates.
-    // No fallback policy for now, not yet implemented. Look into enums.
+    /// Create a new tontine.
     public entry fun create(
         caller: &signer,
         description: string::String,
@@ -358,9 +349,18 @@ module addr::tontine06 {
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
-        stake_with: Option<address>,
+        // We take in `address` rather than `Option<address>` because we can't build a
+        // payload right now for a function that takes in an option. Instead callers
+        // should represent `None` as the zero address.
+        delegation_pool: address,
     ) {
-        create_(caller, description, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy, stake_with);
+        let delegation_pool_option;
+        if (delegation_pool == @0x0) {
+            delegation_pool_option = option::none();
+        } else {
+            delegation_pool_option = option::some(delegation_pool);
+        };
+        create_(caller, description, invitees, check_in_frequency_secs, claim_window_secs, per_member_amount_octa, fallback_policy, delegation_pool_option);
     }
 
     /// This function is separate from the top level create function so we can use it
@@ -374,7 +374,7 @@ module addr::tontine06 {
         claim_window_secs: u64,
         per_member_amount_octa: u64,
         fallback_policy: u8,
-        stake_with: Option<address>,
+        delegation_pool: Option<address>,
     ): Object<Tontine> {
         // Assert some details about the tontine parameters.
         assert!(!vector::is_empty(&invitees), error::invalid_argument(E_CREATION_INVITEES_EMPTY));
@@ -386,9 +386,9 @@ module addr::tontine06 {
 
         // If the tontine is configured to stake the funds once it is locked, ensure
         // there is a delegation pool at the specified address.
-        if (option::is_some(&stake_with)) {
+        if (option::is_some(&delegation_pool)) {
             assert!(
-                delegation_pool::delegation_pool_exists(*option::borrow(&stake_with)),
+                delegation_pool::delegation_pool_exists(*option::borrow(&delegation_pool)),
                 error::invalid_argument(E_CREATION_NO_DELEGATION_POOL),
             );
             // Since a delegation pool is specified we need to make sure that the claim
@@ -396,10 +396,11 @@ module addr::tontine06 {
             // funds and then claim them once they are withdrawable. To that end we
             // ensure that the claim window is at least 2x the lockup duration.
             assert!(
-                claim_window_secs > staking_config::get_recurring_lockup_duration(&staking_config::get()) * 2,
+                claim_window_secs >= staking_config::get_recurring_lockup_duration(&staking_config::get()) * 2,
                 error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL),
             );
-            // Assert that the minumum contribution is high enough for staking.
+            // Assert that the minumum contribution is high enough for staking. This is
+            // twice the amount of MIN_COINS_ON_SHARES_POOL.
             // todo: Find a way to access this constant though a function from the module.
             assert!(
                 per_member_amount_octa >= 1000000000,
@@ -463,7 +464,7 @@ module addr::tontine06 {
             fallback_policy: TontineFallbackPolicy {
                 policy: fallback_policy,
             },
-            stake_with,
+            delegation_pool,
         };
 
         // Create a resource account to hold the funds of the tontine.
@@ -551,7 +552,7 @@ module addr::tontine06 {
 
         // Emit an event for the member being added.
         event::emit_event(&mut tontine_.member_invited_events, MemberInvitedEvent {
-            member: caller_addr,
+            member,
         });
     }
 
@@ -589,7 +590,7 @@ module addr::tontine06 {
 
         // Emit an event for the member being removed.
         event::emit_event(&mut tontine_.member_left_events, MemberLeftEvent {
-            member: caller_addr,
+            member,
             removed: true,
         });
 
@@ -734,13 +735,13 @@ module addr::tontine06 {
         tontine_.locked_time_secs = now_seconds();
 
         // If configured to do so, stake all the funds.
-        if (option::is_some(&tontine_.config.stake_with)) {
+        if (option::is_some(&tontine_.config.delegation_pool)) {
             let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
             let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
             let total_balance = coin::balance<AptosCoin>(resource_acc_addr);
             delegation_pool::add_stake(
                 &resource_acc_signer,
-                *option::borrow(&tontine_.config.stake_with),
+                *option::borrow(&tontine_.config.delegation_pool),
                 total_balance
             );
         };
@@ -790,11 +791,11 @@ module addr::tontine06 {
         let tontine_ = borrow_global_mut<Tontine>(object::object_address(&tontine));
 
         // Assert funds were staked in the first place.
-        assert!(option::is_some(&tontine_.config.stake_with), error::invalid_argument(E_FUNDS_WERE_NOT_STAKED));
+        assert!(option::is_some(&tontine_.config.delegation_pool), error::invalid_argument(E_FUNDS_WERE_NOT_STAKED));
 
         let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
         let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
-        let pool_address = *option::borrow(&tontine_.config.stake_with);
+        let pool_address = *option::borrow(&tontine_.config.delegation_pool);
         let (stake_active, stake_inactive, _) = delegation_pool::get_stake(pool_address, resource_acc_addr);
 
         let to_unlock = stake_active + stake_inactive;
@@ -1018,10 +1019,10 @@ module addr::tontine06 {
     /// funds cannot be withdrawn, unlock hasn't been called yet / was called too
     /// recently, in which case we abort.
     inline fun withdraw_stake(tontine_: &Tontine) {
-        if (option::is_some(&tontine_.config.stake_with)) {
+        if (option::is_some(&tontine_.config.delegation_pool)) {
             let resource_acc_signer = account::create_signer_with_capability(&tontine_.funds_account_signer_cap);
             let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
-            let pool_address = *option::borrow(&tontine_.config.stake_with);
+            let pool_address = *option::borrow(&tontine_.config.delegation_pool);
             let (can_withdraw, to_withdraw) = delegation_pool::get_pending_withdrawal(pool_address, resource_acc_addr);
 
             // Assert there is something to withdraw.
@@ -1225,6 +1226,16 @@ module addr::tontine06 {
         assert!(vector::contains(&allowed, &status), error::invalid_state((status as u64)));
     }
 
+    #[view]
+    fun get_stake_data(tontine: Object<Tontine>): (u64, u64, u64) acquires Tontine {
+        let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
+        if (option::is_none(&tontine_.config.delegation_pool)) {
+            return (0, 0, 0)
+        };
+        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+        delegation_pool::get_stake(*option::borrow(&tontine_.config.delegation_pool), resource_acc_addr)
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////
     //                                     Tests                                     //
     ///////////////////////////////////////////////////////////////////////////////////
@@ -1251,11 +1262,6 @@ module addr::tontine06 {
 
     #[test_only]
     const HALF_REQUIRED_CONTRIBUTION: u64 = 10 * 100000000;
-
-    #[test_only]
-    const CONSENSUS_KEY_1: vector<u8> = x"8a54b92288d4ba5073d3a52e80cc00ae9fbbc1cc5b433b46089b7804c38a76f00fc64746c7685ee628fc2d0b929c2294";
-    #[test_only]
-    const CONSENSUS_POP_1: vector<u8> = x"a9d6c1f1270f2d1454c89a83a4099f813a56dc7db55591d46aa4e6ccae7898b234029ba7052f18755e6fa5e6b73e235f14efc4e2eb402ca2b8f56bad69f965fc11b7b25eb1c95a06f83ddfd023eac4559b6582696cfea97b227f4ce5bdfdfed0";
 
     #[test_only]
     /// Create a test account with some funds.
