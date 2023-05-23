@@ -3,7 +3,7 @@
 
 //! See the README for more information about how this tontine module works.
 
-module addr::tontine05 {
+module addr::tontine06 {
     use std::error;
     use std::option::{Self, Option};
     use std::signer;
@@ -209,10 +209,7 @@ module addr::tontine05 {
     /// The member was the last person standing but failed to claim the funds.
     const MEMBER_STATUS_NEVER_CLAIMED_FUNDS: u8 = 135;
 
-    // TODO: Use a set for `reconfirmation_required` and `members`.
-
     #[resource_group_member(group = aptos_framework::object::ObjectGroup)]
-    /// todo
     struct Tontine has key, store {
         /// The parameters used to configure initial creation of the tontine.
         config: TontineConfig,
@@ -300,7 +297,6 @@ module addr::tontine05 {
     /// This policy defines what happens if the last-standing member of the tontine
     /// fails to claim the funds within the claim window. The options are:
     /// 1. The funds are returned to the members.
-    /// 2. The funds are sent to giving.apt (for charity).
     struct TontineFallbackPolicy has store, drop {
         policy: u8,
     }
