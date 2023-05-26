@@ -15,6 +15,7 @@ module addr::tontine07 {
     use aptos_framework::coin::Self;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::delegation_pool;
+    use aptos_framework::stake;
     use aptos_framework::staking_config;
     use aptos_std::object::{Self, DeleteRef, Object};
     use dport_std::simple_map::{Self, SimpleMap};
@@ -40,7 +41,7 @@ module addr::tontine07 {
     /// There was no delegation pool at the specified address.
     const E_CREATION_NO_DELEGATION_POOL: u64 = 7;
 
-    /// The required minimum was too small to allow for staking.
+    /// The required minimum was too small to allow for staking. If staking, each member must contribute at least 20 APT / <number of members>.
     const E_CREATION_MINIMUM_TOO_SMALL: u64 = 8;
 
     /// Tried to interact with an account with no TontineStore.
@@ -384,13 +385,22 @@ module addr::tontine07 {
         assert!(claim_window_secs < 60 * 60 * 24 * 365, error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL));
         assert!(per_member_amount_octa > 0, error::invalid_argument(E_CREATION_PER_MEMBER_AMOUNT_ZERO));
 
+        let caller_addr = signer::address_of(caller);
+
+        // Add the creator's address to `invitees` if necessary.
+        if (!vector::contains(&invitees, &caller_addr)) {
+            vector::push_back(&mut invitees, caller_addr);
+        };
+
         // If the tontine is configured to stake the funds once it is locked, ensure
         // there is a delegation pool at the specified address.
         if (option::is_some(&delegation_pool)) {
+            // Assert that the given address actually has a delegation pool.
             assert!(
                 delegation_pool::delegation_pool_exists(*option::borrow(&delegation_pool)),
                 error::invalid_argument(E_CREATION_NO_DELEGATION_POOL),
             );
+
             // Since a delegation pool is specified we need to make sure that the claim
             // window is long enough to allow for someone to call unlock on the staked
             // funds and then claim them once they are withdrawable. To that end we
@@ -399,20 +409,14 @@ module addr::tontine07 {
                 claim_window_secs >= staking_config::get_recurring_lockup_duration(&staking_config::get()) * 2,
                 error::invalid_argument(E_CREATION_CLAIM_WINDOW_TOO_SMALL),
             );
-            // Assert that the minumum contribution is high enough for staking. This is
-            // twice the amount of MIN_COINS_ON_SHARES_POOL.
-            // todo: Find a way to access this constant though a function from the module.
+
+            // Assert that the minimum contribution is high enough such that the total
+            // pooled contribution is at least 20 APT (2x MIN_COINS_ON_SHARES_POOL).
+            // TODO: Find a way to access this constant though a function from the module.
             assert!(
-                per_member_amount_octa >= 1000000000,
+                per_member_amount_octa * vector::length(&invitees) >= 2000000000,
                 error::invalid_argument(E_CREATION_MINIMUM_TOO_SMALL),
             );
-        };
-
-        let caller_addr = signer::address_of(caller);
-
-        // Add the creator's address to `invitees` if necessary.
-        if (!vector::contains(&invitees, &caller_addr)) {
-            vector::push_back(&mut invitees, caller_addr);
         };
 
         // Build member_data. This will fail if there are duplicates in the invitees
@@ -1227,13 +1231,27 @@ module addr::tontine07 {
     }
 
     #[view]
-    fun get_stake_data(tontine: Object<Tontine>): (u64, u64, u64) acquires Tontine {
+    /// Return the active (locked), inactive (withdrawable), pending_inactive
+    /// (pending withdrawable) stake. Only one of these numbers should be non-zero.
+    /// If pending_inactive > 0, the final value will be the unixtime in seconds
+    /// of when the stake will become withdrawable. Otherwise it will be zero.
+    fun get_stake_data(tontine: Object<Tontine>): (u64, u64, u64, u64) acquires Tontine {
         let tontine_ = borrow_global<Tontine>(object::object_address(&tontine));
         if (option::is_none(&tontine_.config.delegation_pool)) {
-            return (0, 0, 0)
-        };
-        let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
-        delegation_pool::get_stake(*option::borrow(&tontine_.config.delegation_pool), resource_acc_addr)
+            (0, 0, 0, 0)
+        } else {
+            // We know that the DelegationPool and StakePool will always be at the same
+            // address.
+            let pool_address = *option::borrow(&tontine_.config.delegation_pool);
+            let resource_acc_addr = account::get_signer_capability_address(&tontine_.funds_account_signer_cap);
+            let (active, inactive, pending_inactive) = delegation_pool::get_stake(pool_address, resource_acc_addr);
+            let locked_up_until = if (pending_inactive > 0) {
+                stake::get_lockup_secs(pool_address)
+            } else {
+                0
+            };
+            (active, inactive, pending_inactive, locked_up_until)
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
