@@ -161,10 +161,14 @@ export function MemberInfoTable({
     const contribution = parseInt(memberData.contributed_octa);
 
     // Third column.
-    const lastCheckInText =
-      lastCheckIn === undefined
-        ? "Never"
-        : new Date(lastCheckIn * 1000).toLocaleString();
+    let lastCheckInText;
+    if (claimedAtSecs > 0) {
+      lastCheckInText = "N/A";
+    } else if (lastCheckIn === undefined) {
+      lastCheckInText = "Never";
+    } else {
+      lastCheckInText = new Date(lastCheckIn * 1000).toLocaleString();
+    }
     const reconfirmationRequiredText = memberData.reconfirmation_required
       ? "Yes"
       : "No";
@@ -283,6 +287,13 @@ export function MemberInfoTable({
       );
     }
 
+    let contributionText;
+    if (claimedAtSecs == 0) {
+      contributionText = `${octaToAptNormal(contribution)} APT`;
+    } else {
+      contributionText = "N/A";
+    }
+
     const row = (
       <Tr key={memberAddress}>
         <Td>
@@ -291,7 +302,7 @@ export function MemberInfoTable({
             textComponent={<Text>{memberText}</Text>}
           />
         </Td>
-        <Td isNumeric>{`${octaToAptNormal(contribution)} APT`}</Td>
+        <Td isNumeric>{contributionText}</Td>
         <Td>{thirdColumnComponent}</Td>
         <Td>{fourthColumnComponent}</Td>
         {fifthColumnComponent ? <Td>{fifthColumnComponent}</Td> : null}
