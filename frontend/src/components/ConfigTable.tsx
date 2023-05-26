@@ -24,7 +24,7 @@ export function ConfigTable({
   userAddress: string | undefined;
 }) {
   const creatorAddress = objectData.owner;
-  const { data: names } = useGetAnsNames(() => [creatorAddress]);
+  const { data: names } = useGetAnsNames([creatorAddress]);
   const ansLookup = names?.find((lookup) => lookup.address === creatorAddress);
   var text;
   var label;
@@ -120,7 +120,7 @@ export function ConfigTable({
             {"Fallback Policy "}
             <sup>
               <Tooltip
-                label={"This is what happens if no one claims the funds"}
+                label={"This is what happens if no one claims the funds."}
               >
                 ⓘ
               </Tooltip>

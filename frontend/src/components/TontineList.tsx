@@ -39,7 +39,17 @@ export function TontineList({
       </Box>
     );
   } else if (tontineMembershipError) {
-    body = <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>;
+    body = (
+      <Box
+        p={4}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100%"
+      >
+        <Text>{`Error fetching tontines: ${tontineMembershipError}`}</Text>
+      </Box>
+    );
   } else if (tontineMembershipIsLoading) {
     body = (
       <Box

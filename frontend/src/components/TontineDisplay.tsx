@@ -17,7 +17,10 @@ export function TontineDisplay({
     <Box>
       <Box>
         <Flex alignItems="center">
-          <PrimaryActions activeTontine={activeTontine} />
+          <PrimaryActions
+            activeTontine={activeTontine}
+            setActiveTontine={setActiveTontine}
+          />
           <Spacer />
           <Flex marginRight={4} alignItems="center">
             <Text paddingEnd={2}>Raw</Text>

@@ -23,14 +23,13 @@ const fetchNames = async (
 };
 
 export function useGetAnsNames(
-  addressesFn: () => string[],
+  addresses: string[],
   options: {
     enabled?: boolean;
   } = {},
 ): UseQueryResult<AnsNameLookup[]> {
   const [state, _setState] = useGlobalState();
 
-  const addresses = addressesFn();
   return useQuery(
     ["ansNames", { addresses }, state.network_value],
     async () => {

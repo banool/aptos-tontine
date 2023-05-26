@@ -69,8 +69,8 @@ export function MemberInfoTable({
 
   const [waitingForTransaction, setWaitingForTransaction] = useState(false);
 
-  const members = tontineData.config.members;
-  const { data: names } = useGetAnsNames(() => members);
+  const members: string[] = tontineData.config.members;
+  const { data: names } = useGetAnsNames(members);
   const memberDatas: Map<string, MemberData> = simpleMapArrayToMap(
     tontineData.member_data.data,
   );
@@ -79,6 +79,10 @@ export function MemberInfoTable({
   const checkInFrequencySecs: number = parseInt(
     tontineData.config.check_in_frequency_secs,
   );
+  const claimWindowSecs: number = parseInt(
+    tontineData.config.claim_window_secs,
+  );
+  const claimedAtSecs: number = parseInt(tontineData.funds_claimed_secs);
   const isTerminal =
     overallStatus === OVERALL_STATUS_FUNDS_CLAIMED ||
     overallStatus === OVERALL_STATUS_FUNDS_NEVER_CLAIMED ||
@@ -173,6 +177,7 @@ export function MemberInfoTable({
     const thirdColumnComponent = <Text>{thirdColumnText}</Text>;
 
     // Fourth column.
+    const nextCheckIn = (lastCheckIn ?? createdAt) + checkInFrequencySecs;
     var fourthColumnComponent;
     if (!isLocked) {
       var isReadyText;
@@ -187,7 +192,6 @@ export function MemberInfoTable({
     } else if (isTerminal) {
       fourthColumnComponent = <Text>N/A</Text>;
     } else {
-      const nextCheckIn = (lastCheckIn ?? createdAt) + checkInFrequencySecs;
       const nextCheckInText = new Date(nextCheckIn * 1000).toLocaleString();
       fourthColumnComponent = <Text>{nextCheckInText}</Text>;
     }
@@ -195,21 +199,42 @@ export function MemberInfoTable({
     // Fifth column.
     var fifthColumnComponent = null;
     if (isLocked) {
-      var text;
       if (memberStatus === undefined) {
-        text = "Loading...";
+        fifthColumnComponent = <Text>Loading...</Text>;
       } else if (memberStatus === MEMBER_STATUS_STILL_ELIGIBLE) {
-        text = "Yes";
+        fifthColumnComponent = <Text>Yes</Text>;
       } else if (memberStatus === MEMBER_STATUS_INELIGIBLE) {
-        text = "No";
+        fifthColumnComponent = <Text>No</Text>;
       } else if (memberStatus === MEMBER_STATUS_CAN_CLAIM_FUNDS) {
-        text = "Can claim";
+        const claimBy = nextCheckIn + claimWindowSecs;
+        const claimByString = new Date(claimBy * 1000).toLocaleString();
+        fifthColumnComponent = (
+          <Text>
+            {"Can claim "}
+            <sup>
+              <Tooltip
+                label={`You are the only member remaining, you must claim the funds by ${claimByString}.`}
+              >
+                ⓘ
+              </Tooltip>
+            </sup>
+          </Text>
+        );
       } else if (memberStatus === MEMBER_STATUS_CLAIMED_FUNDS) {
-        text = "Funds claimed";
+        const claimedAtString = new Date(claimedAtSecs * 1000).toLocaleString();
+        fifthColumnComponent = (
+          <Text>
+            {"Funds claimed "}
+            <sup>
+              <Tooltip label={`Funds claimed at ${claimedAtString}.`}>
+                ⓘ
+              </Tooltip>
+            </sup>
+          </Text>
+        );
       } else {
-        text = "Failed to claim";
+        fifthColumnComponent = <Text>Failed to claim</Text>;
       }
-      fifthColumnComponent = <Text>{text}</Text>;
     } else if (editingPossible) {
       // The user is the creator and the tontine is not locked yet and the wallet is
       // connected. Show a button for removing this user from the tontine.

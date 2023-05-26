@@ -120,9 +120,11 @@ export function TontineInfo({
             userAddress={account?.address}
             creatorAddress={creatorAddress!}
           />
-          <Box p={5}>
-            <InviteMemberButton activeTontine={activeTontine} />
-          </Box>
+          {isLocked ? null : (
+            <Box p={5}>
+              <InviteMemberButton activeTontine={activeTontine} />
+            </Box>
+          )}
         </Box>
         <Heading size="md">Config</Heading>
         <Box p={6} paddingLeft={3} paddingRight={3}>

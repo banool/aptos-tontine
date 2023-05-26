@@ -240,7 +240,7 @@ export function CreateTontine({}: {}) {
     (invitee) => invitee !== "",
   );
 
-  const { data: ansNameLookups } = useGetAnsNames(() => entriesToLookup, {
+  const { data: ansNameLookups } = useGetAnsNames(entriesToLookup, {
     enabled: entriesToLookup.length > 0,
   });
   const { data: ansAddressLookups } = useGetAnsAddresses(

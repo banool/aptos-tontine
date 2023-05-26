@@ -1,6 +1,7 @@
 import { UseQueryResult, useQuery } from "react-query";
 import { getMemberStatuses } from "..";
 import { getModuleId, useGlobalState } from "../../GlobalState";
+import { REFETCH_INTERVAL_MS } from "../helpers";
 
 export function useGetMemberStatuses(
   tontineAddress: string,
@@ -23,6 +24,11 @@ export function useGetMemberStatuses(
       options.additionalQueryCriteria,
     ],
     () => getMemberStatuses(tontineAddress, moduleId, state.network_value),
-    { refetchOnWindowFocus: false, enabled: options.enabled },
+    {
+      refetchOnWindowFocus: false,
+      enabled: options.enabled,
+      // Refetch every 5 seconds.
+      refetchInterval: REFETCH_INTERVAL_MS,
+    },
   );
 }

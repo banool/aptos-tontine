@@ -1,7 +1,8 @@
 import { CreateToastFnReturn } from "@chakra-ui/react";
 import { ActiveTontine } from "../pages/HomePage";
 import { QueryClient } from "react-query";
-import { TONTINE_MEMBERSHIP_QUERY_KEY } from "./hooks/useGetTontineMembership";
+
+export const REFETCH_INTERVAL_MS = 8000;
 
 export const onTxnSuccess = async ({
   toast,
@@ -24,13 +25,12 @@ export const onTxnSuccess = async ({
     duration: 4000,
     isClosable: true,
   });
-  // Invalidate the account resource query so it will be refetched.
-  // Also invalidate the tontine membership query so the sidebar will be reloaded.
+  // Wait a short while before invalidating to make it more likely that we avoid
+  // read inconsistency from the fullnodes / indexer lag.
+  await new Promise((r) => setTimeout(r, 100));
+  // Invalidate every query.
   // https://tanstack.com/query/v4/docs/react/guides/query-invalidation
-  // We wait 1.5 seconds for the indexer processor to pick up the transaction.
-  await new Promise((r) => setTimeout(r, 2000));
-  queryClient.invalidateQueries({ queryKey: activeTontine.address });
-  queryClient.invalidateQueries({ queryKey: TONTINE_MEMBERSHIP_QUERY_KEY });
+  queryClient.invalidateQueries();
 };
 
 export const onTxnFailure = ({
@@ -47,7 +47,7 @@ export const onTxnFailure = ({
     title,
     description,
     status: "error",
-    duration: 7000,
+    duration: 6000,
     isClosable: true,
   });
 };

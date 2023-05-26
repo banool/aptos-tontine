@@ -61,8 +61,10 @@ import { useGetStakeData } from "../api/hooks/useGetStakeData";
 
 export function PrimaryActions({
   activeTontine,
+  setActiveTontine,
 }: {
   activeTontine: ActiveTontine;
+  setActiveTontine: (tontine: ActiveTontine | null) => void;
 }) {
   const [state, _] = useGlobalState();
   const queryClient = useQueryClient();
@@ -83,10 +85,6 @@ export function PrimaryActions({
   const toast = useToast();
 
   const moduleId = getModuleId(state);
-
-  const { data: stakeData } = useGetStakeData(activeTontine.address);
-
-  console.log("mamamia", stakeData);
 
   const [amountAptFormField, setAmountAptFormField] = useState("");
   const [waitingForTransaction, setWaitingForTransaction] = useState(false);
@@ -110,6 +108,12 @@ export function PrimaryActions({
 
   // Whether the user of this UI is the creator of this tontine.
   const userIsCreator = creatorAddress === account?.address;
+
+  const isLocked = tontineData?.locked_time_secs > 0;
+
+  const { data: stakeData } = useGetStakeData(activeTontine.address, {
+    enabled: isLocked,
+  });
 
   const {
     isLoading: memberStatusesIsLoading,
@@ -223,14 +227,14 @@ export function PrimaryActions({
 
   var contributeDisabled = baseDisabled;
   var contributeTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs > 0) {
+  if (isLocked) {
     contributeDisabled = true;
     contributeTooltip = "Tontine is locked.";
   }
 
   var withdrawDisabled = baseDisabled;
   var withdrawTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs > 0) {
+  if (isLocked) {
     withdrawDisabled = true;
     withdrawTooltip = "Tontine is locked.";
   } else if (contributionAmount === 0) {
@@ -241,7 +245,7 @@ export function PrimaryActions({
   // This is only shown if the user is not the creator of the tontine.
   var leaveDisabled = baseDisabled;
   var leaveTooltip = baseTooltip;
-  if (tontineData?.locked_time_secs > 0) {
+  if (isLocked) {
     leaveDisabled = true;
     leaveTooltip = "Tontine is locked.";
   } else if (memberStatus === undefined) {
@@ -273,7 +277,7 @@ export function PrimaryActions({
     destroyDisabled = false;
     destroyTooltip =
       "You will get a gas refund for destroying this finished tontine.";
-  } else if (tontineData?.locked_time_secs > 0) {
+  } else if (isLocked) {
     destroyDisabled = true;
     destroyTooltip = "Tontine is locked.";
   }
@@ -284,7 +288,7 @@ export function PrimaryActions({
     lockDisabled = true;
     lockTooltip =
       "Some members must still contribute before you can lock the tontine.";
-  } else if (tontineData?.locked_time_secs > 0) {
+  } else if (isLocked) {
     lockDisabled = true;
     lockTooltip = "Tontine is already locked.";
   }
@@ -317,16 +321,19 @@ export function PrimaryActions({
     claimDisabled = true;
     claimTooltip = "Multiple members are still eligible for the funds";
   } else if (!!stakeData?.pendingInactive) {
+    const withdrawableAtString = new Date(
+      stakeData.lockedUntil * 1000,
+    ).toLocaleString();
     claimDisabled = true;
-    // todo figure out how long they have to wait
-    claimTooltip = "Funds have been unlocked but they're not withdrawable yet.";
+    claimTooltip = `Funds have been unstaked but they're not withdrawable yet. They will become withdrawable at ${withdrawableAtString}.`;
   }
 
   var unlockDisabled = baseDisabled;
   var unlockTooltip = baseTooltip;
   if (stakeData?.active) {
     unlockDisabled = false;
-    unlockTooltip = "Unlock funds from the stake pool.";
+    unlockTooltip =
+      "You are eligible to claim the funds, but they must be unstaked first";
   }
 
   var executeFallbackDisabled = baseDisabled;
@@ -537,12 +544,10 @@ export function PrimaryActions({
           }
         }}
       >
-        Unlock
+        Unstake
       </Button>
     </Tooltip>
   );
-
-  console.log("heeeeeeeeeeee", stakeData?.active);
 
   const withdrawModal = (
     <Modal isOpen={withdrawIsOpen} onClose={withdrawOnClose}>
@@ -681,6 +686,7 @@ export function PrimaryActions({
                     });
                   } finally {
                     setWaitingForTransaction(false);
+                    setActiveTontine(null);
                   }
                 }}
               >
@@ -757,7 +763,7 @@ export function PrimaryActions({
               Check in
             </Button>
           </Tooltip>
-          {stakeData?.active === 0 ? claimButton : unlockButton}
+          {stakeData && stakeData.active > 0 ? unlockButton : claimButton}
           <Tooltip label={executeFallbackTooltip}>
             <Button
               colorScheme="blue"

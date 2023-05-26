@@ -1,6 +1,7 @@
 import { UseQueryResult, useQuery } from "react-query";
 import { useGlobalState } from "../../GlobalState";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
+import { REFETCH_INTERVAL_MS } from "../helpers";
 
 export const BASIC_TONTINE_STATE_STAGING = 0;
 export const BASIC_TONTINE_STATE_LOCKED = 1;
@@ -30,6 +31,11 @@ export function useGetTontineMembership(): UseQueryResult<TontineMembership[]> {
       const data = await res.json();
       return data;
     },
-    { refetchOnWindowFocus: false, enabled: account !== null },
+    {
+      refetchOnWindowFocus: false,
+      enabled: account !== null,
+      // Refetch every 5 seconds.
+      refetchInterval: REFETCH_INTERVAL_MS,
+    },
   );
 }

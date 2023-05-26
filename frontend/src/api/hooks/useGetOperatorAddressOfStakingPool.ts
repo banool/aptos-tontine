@@ -1,6 +1,4 @@
-import { Types } from "aptos";
-import { UseQueryResult, useQuery } from "react-query";
-import { getAccountResource } from "..";
+import { useQuery } from "react-query";
 import { ResponseError } from "../client";
 import { getIndexerUrl, useGlobalState } from "../../GlobalState";
 import { fetchOperatorAddressOfStakingPool } from "../indexer";

@@ -3,6 +3,7 @@ import { useQuery } from "react-query";
 import { getAccountResource } from "..";
 import { ResponseError } from "../client";
 import { useGlobalState } from "../../GlobalState";
+import { REFETCH_INTERVAL_MS } from "../helpers";
 
 export type useGetAccountResourceResponse = {
   accountResource: Types.MoveResource | undefined;
@@ -35,7 +36,12 @@ export function useGetAccountResource(
         { address, resourceType: resource },
         state.network_value,
       ),
-    { refetchOnWindowFocus: false, enabled: options.enabled },
+    {
+      refetchOnWindowFocus: false,
+      enabled: options.enabled,
+      // Refetch every 5 seconds.
+      refetchInterval: REFETCH_INTERVAL_MS,
+    },
   );
 
   const { isLoading, error } = accountResourcesResult;

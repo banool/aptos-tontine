@@ -56,7 +56,6 @@ export async function getMemberStatuses(
     type_arguments: [],
     arguments: [tontineAddress],
   };
-  console.log("getMemberStatuses payload", JSON.stringify(payload));
   const response = await client.view(payload);
   return response[0] as any;
 }
@@ -72,7 +71,6 @@ export async function getOverallStatus(
     type_arguments: [],
     arguments: [tontineAddress],
   };
-  console.log("getOverallStatus payload", JSON.stringify(payload));
   const response = await client.view(payload);
   return response[0] as any;
 }
@@ -81,6 +79,7 @@ export type StakeData = {
   active: number;
   inactive: number;
   pendingInactive: number;
+  lockedUntil: number;
 };
 
 export async function getStakeData(
@@ -99,6 +98,7 @@ export async function getStakeData(
     active: parseInt(response[0] as string),
     inactive: parseInt(response[1] as string),
     pendingInactive: parseInt(response[2] as string),
+    lockedUntil: parseInt(response[3] as string),
   };
 }
 

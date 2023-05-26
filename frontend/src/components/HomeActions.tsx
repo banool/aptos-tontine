@@ -64,7 +64,7 @@ export function HomeActions({
   const enterAddressModal = (
     <Modal isOpen={enterAddressModalIsOpen} onClose={enterAddressModalOnClose}>
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent minW="725px">
         <ModalHeader>View Tontine</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
