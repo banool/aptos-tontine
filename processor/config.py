@@ -15,6 +15,7 @@ class Config(BaseSettings):
     tontine_module_address: str
     tontine_module_name: str
     api_port: int | None = None
+    run_processor: bool = True
 
     class Config:
         # change order of priority of settings sources such that environment variables take precedence over config file settings

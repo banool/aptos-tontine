@@ -15,53 +15,65 @@ class RawDataStub(object):
             channel: A grpc.Channel.
         """
         self.GetTransactions = channel.unary_stream(
-                '/aptos.indexer.v1.RawData/GetTransactions',
-                request_serializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.GetTransactionsRequest.SerializeToString,
-                response_deserializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.TransactionsResponse.FromString,
-                )
+            "/aptos.indexer.v1.RawData/GetTransactions",
+            request_serializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.GetTransactionsRequest.SerializeToString,
+            response_deserializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.TransactionsResponse.FromString,
+        )
 
 
 class RawDataServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetTransactions(self, request, context):
-        """Get transactions batch without any filtering from starting version and end if transaction count is present.
-        """
+        """Get transactions batch without any filtering from starting version and end if transaction count is present."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_RawDataServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetTransactions': grpc.unary_stream_rpc_method_handler(
-                    servicer.GetTransactions,
-                    request_deserializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.GetTransactionsRequest.FromString,
-                    response_serializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.TransactionsResponse.SerializeToString,
-            ),
+        "GetTransactions": grpc.unary_stream_rpc_method_handler(
+            servicer.GetTransactions,
+            request_deserializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.GetTransactionsRequest.FromString,
+            response_serializer=aptos_dot_indexer_dot_v1_dot_raw__data__pb2.TransactionsResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'aptos.indexer.v1.RawData', rpc_method_handlers)
+        "aptos.indexer.v1.RawData", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class RawData(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def GetTransactions(request,
+    def GetTransactions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
             target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/aptos.indexer.v1.RawData/GetTransactions',
+            "/aptos.indexer.v1.RawData/GetTransactions",
             aptos_dot_indexer_dot_v1_dot_raw__data__pb2.GetTransactionsRequest.SerializeToString,
             aptos_dot_indexer_dot_v1_dot_raw__data__pb2.TransactionsResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

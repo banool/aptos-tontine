@@ -6,3 +6,4 @@ starting_version: 147917750
 tontine_module_address: "0xa00853cb664fd934079750a73e944623b2cd4175092b6f8d48dc4ed2e279d820"
 tontine_module_name: "tontine07"
 api_port: 6781
+run_processor: false

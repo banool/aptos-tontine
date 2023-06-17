@@ -26,8 +26,10 @@ def main():
     set_start_method("fork")
 
     p = Pool(2)
-    p1 = p.apply_async(run_api, [(config)])
-    p2 = p.apply_async(run_processor, [(config)])
+    api_process = p.apply_async(run_api, [(config)])
+
+    if config.run_processor:
+        processor_process = p.apply_async(run_processor, [(config)])
 
     logging.info(
         "Spawned processors for the processor and api, waiting for them "
@@ -36,15 +38,20 @@ def main():
 
     # Wait for either of the processes to finish (which should never happen).
     while True:
-        if p1.ready() or p2.ready():
+        if api_process.ready():
+            break
+        if config.run_processor and processor_process.ready():
             break
         time.sleep(0.1)
 
-    if p1.ready():
-        logging.error(f"API process unexpectedly exited: {p1.get()}")
+    if api_process.ready():
+        logging.error(f"API process unexpectedly exited: {api_process.get()}")
 
-    if p2.ready():
-        logging.error(f"Processor process unexpectedly exited: {p2.get()}")
+    if config.run_processor:
+        if processor_process.ready():
+            logging.error(
+                f"Processor process unexpectedly exited: {processor_process.get()}"
+            )
 
     p.close()
 

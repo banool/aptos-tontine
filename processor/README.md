@@ -21,12 +21,12 @@ poetry install
 
 Run:
 ```
-poetry run python main.py -c config/example.yaml
+poetry run python main.py -c config/testnet.yaml
 ```
 
 ### Linting & autoformatting
 ```bash
-poe isort
-poe black
+poetry run isort .
+poetry run python -m black .
 ```
 
