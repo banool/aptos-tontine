@@ -1,0 +1,8 @@
+verbosity_level = "INFO"
+
+[prover]
+auto_trace_level = "AllFunctions"
+report_severity = "Warning"
+
+[backend]
+proc_cores = 8
