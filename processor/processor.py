@@ -6,7 +6,7 @@ import grpc
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from aptos.indexer.v1 import raw_data_pb2, raw_data_pb2_grpc
+from aptos_indexer_protos.aptos.indexer.v1 import raw_data_pb2, raw_data_pb2_grpc
 from config import Config
 from my_parser import INDEXER_NAME, parse
 from tables import NextVersionToProcess, TontineMembership, TontineState

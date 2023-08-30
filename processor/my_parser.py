@@ -2,8 +2,8 @@ import json
 import typing
 from dataclasses import dataclass
 
-from aptos.transaction.testing1.v1 import transaction_pb2
-from aptos.util.timestamp import timestamp_pb2
+from aptos_indexer_protos.aptos.transaction.v1 import transaction_pb2
+from aptos_indexer_protos.aptos.util.timestamp import timestamp_pb2
 from tables import TontineMembership, TontineState, TontineStateEnum
 
 # INDEXER_NAME is used to track the latest processed version

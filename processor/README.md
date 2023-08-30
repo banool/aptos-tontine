@@ -12,7 +12,6 @@ This processor is written to be as simple deploy as possible:
 ### Prerequisites
 - Python 3.11 or higher
 
-### Tutorial
 ## Development
 ### Install all dependencies
 ```bash

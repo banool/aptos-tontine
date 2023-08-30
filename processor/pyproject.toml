@@ -15,6 +15,7 @@ protobuf = "^4.22.3"
 pydantic = "^1.10.7"
 flask = "^2.3.2"
 flask-cors = "^3.0.10"
+aptos-indexer-protos = "^0.1.0"
 
 [tool.poetry.group.dev.dependencies]
 grpcio-tools = "^1.53.0"
